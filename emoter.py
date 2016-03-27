@@ -19,7 +19,7 @@ class Emoter:
                     self.chars[char].append([int(i) for i in line.strip()])
 
     def make_phrase(self, phrase, emoji):
-        result = [[] for _ in range(5)]
+        result = [[''] for _ in range(5)]
         for char in phrase:
             for i, line in enumerate(self.chars[char]):
 
