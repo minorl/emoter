@@ -12,11 +12,14 @@ class Emoter:
 
     def load_chars(self):
         self.chars = {' ': [[0 for _ in range(2)] for _ in range(5)]}
-        for char in string.ascii_uppercase + '^$#0123456789':
-            self.chars[char] = []
-            with open('{}/characters/{}.txt'.format(self.character_dir, char)) as f:
-                for line in f:
-                    self.chars[char].append([int(i) for i in line.strip()])
+        for fname in os.listdir('characters'):
+            if fname.endswith('.txt'):
+                print(fname)
+                char = fname[0]
+                self.chars[char] = []
+                with open('characters/{}'.format(fname)) as f:
+                    for line in f:
+                        self.chars[char].append([int(i) for i in line.strip()])
 
     def make_phrase(self, phrase, emoji):
         result = [[] for _ in range(5)]
