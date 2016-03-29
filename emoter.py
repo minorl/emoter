@@ -12,7 +12,7 @@ class Emoter:
 
     def load_chars(self):
         self.chars = {' ': [[0 for _ in range(2)] for _ in range(5)]}
-        for char in string.ascii_uppercase + '^$':
+        for char in string.ascii_uppercase + '^$#0123456789':
             self.chars[char] = []
             with open('{}/characters/{}.txt'.format(self.character_dir, char)) as f:
                 for line in f:
