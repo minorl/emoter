@@ -14,7 +14,6 @@ class Emoter:
         self.chars = {' ': [[0 for _ in range(2)] for _ in range(5)]}
         for fname in os.listdir('characters'):
             if fname.endswith('.txt'):
-                print(fname)
                 char = fname[0]
                 self.chars[char] = []
                 with open('characters/{}'.format(fname)) as f:
@@ -28,7 +27,7 @@ class Emoter:
 
                 for c in line:
                     result[i].append(emoji if c else self.space_emoji)
-                result[i].extend(' ' for _ in range(5))
+                result[i].append(':s:')
 
         return '\n'.join(''.join(l) for l in result)
 
