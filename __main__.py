@@ -1,9 +1,13 @@
 import asyncio
 import config
-from emotebot import EmoteBot
+import emotebot
+from slack.slack_api import Slack
 
+slackapp = Slack(config.TOKEN)
+bot = emotebot.EmoteBot(config.CHANNELS, config.NAME)
 
-if __name__ == "__main__":
-    bot = EmoteBot(config.TOKEN, config.NAME, config.CHANNELS)
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(bot.main_loop())
+slackapp.register_handler(bot.channel_command, channels=config.CHANNELS)
+slackapp.register_handler(bot.pm_command)
+
+loop = asyncio.get_event_loop()
+loop.run_until_complete(slackapp.run())
