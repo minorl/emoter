@@ -33,21 +33,33 @@ class EmoteBot:
         text = event['text']
         try:
             parsed = self.pm_parser.parse(text)
+            if 'command_emoji' in parsed:
+                if 'channel' in parsed and parsed['channel'] not in self.channels:
+                    out_text = "Channel {} not recognized or not permitted.".format(channel)
+                    channel = None
+                elif 'channel' in parsed:
+                    user = event['user']
+                    curr_time = time.time()
+                    diff = int(self.next_use[user] - curr_time)
+                    if diff > 0:
+                        out_text = "You can send another message in {} seconds.".format(diff)
+                        channel = None
+                    else:
+                        self.next_use[user] = curr_time + self.delay
+                        out_text =  self.emotify(parsed['command_emoji'])
+                        channel = parsed['channel']
+                        # If no channel is specified, send it back to the user
+                else:
+                    channel = None
+                    out_text =  self.emotify(parsed['command_emoji'])
         except ParseException:
-            return MessageCommand(text="Invalid command. Command should be: <channel> <emoji> <message>", channel=event['channel'])
-        if 'command_emoji' in parsed:
-            user = event['user']
-            curr_time = time.time()
-            diff = int(self.next_use[user] - curr_time)
-            if diff > 0:
-                return MessageCommand(text="You can send another message in {} seconds.".format(diff), channel=event['channel'])
-            self.next_use[user] = curr_time + self.delay
-            channel = parsed['channel']
-            if channel in self.channels:
-                emotified = self.emotify(parsed['command_emoji'])
-                return MessageCommand(text=emotified, channel_name=channel)
-            else:
-                return MessageCommand(text="Channel {} not permitted".format(channel), channel=event['channel'])
+            out_text="Invalid command. Command should be: <channel> <emoji> <message>"
+            channel = None
+
+        if channel is None:
+            return MessageCommand(text=out_text, channel=event['channel'])
+        else:
+            return MessageCommand(text=out_text, channel_name=channel)
 
     def emotify(self, parsed):
         emoji = parsed['emoji']
