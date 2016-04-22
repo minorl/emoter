@@ -17,7 +17,7 @@ class Slack:
     def __init__(self, token):
         self.token = token
         self.channels = None
-        self.groups = None
+        self.users = None
         self.message_id = 0
         self.dm_handlers = defaultdict(list)
         self.channel_handlers = defaultdict(lambda: defaultdict(list))
@@ -27,6 +27,7 @@ class Slack:
         body = response.json()
         self.c_name_to_id = {c['name']: c['id'] for c in chain(body['channels'], body['groups'])}
         self.c_id_to_name = {v: k for k, v in self.c_name_to_id.items()}
+        self.u_id_to_name = {u['id']: u['name'] for u in body['users']}
         url = body["url"]
 
         async with websockets.connect(url) as self.socket:
@@ -36,7 +37,7 @@ class Slack:
                     try:
                         if event['channel'][0] == 'D':
                             for h in self.dm_handlers[event['type']]:
-                                command = await h(event)
+                                command = await h(event=event)
                                 if command:
                                     await self.execute(command)
                         else:
@@ -56,7 +57,8 @@ class Slack:
     async def execute(self, command):
         if isinstance(command, MessageCommand):
             channel = command.channel if command.channel else self.c_name_to_id[command.channel_name]
-            await self.send(command.text, channel)
+            if len(command.text) < 4000:
+                await self.send(command.text, channel)
 
     async def get_event(self):
         if self.socket is None:

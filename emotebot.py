@@ -30,7 +30,9 @@ class EmoteBot:
             return MessageCommand(text=self.emotify(parsed), channel=channel)
 
     async def pm_command(self, event):
+        print("Got PM")
         text = event['text']
+        print(text)
         try:
             parsed = self.pm_parser.parse(text)
             if 'command_emoji' in parsed:
@@ -53,7 +55,7 @@ class EmoteBot:
                     channel = None
                     out_text =  self.emotify(parsed['command_emoji'])
         except ParseException:
-            out_text="Invalid command. Command should be: <channel> <emoji> <message>"
+            out_text="Invalid command. Command should be: [channel] emoji message"
             channel = None
 
         if channel is None:
