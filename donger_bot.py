@@ -60,7 +60,7 @@ class DongerBot:
             out_text = 'Binds must be less than {} characters long'.format(self.max_len)
             out_channel = None
         elif key in self.binds:
-            out_text = '{} is already bound to {}.'.format(key, self.binds[key])
+            out_text = '{} is already bound to {}.'.format(key, self.binds[key].output)
             out_channel = None
         else:
             self.binds[key] = Bind(user, output)
