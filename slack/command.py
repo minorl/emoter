@@ -4,9 +4,7 @@ class Command(metaclass=abc.ABCMeta):
     pass
 
 class MessageCommand(Command):
-    def __init__(self, channel=None, channel_name=None, text=''):
-        if not (channel_name is None)  ^ (channel is None):
-            raise ValueError("Only one of channel and channel_name may be set")
+    def __init__(self, channel=None, user=None, text=''):
         self.channel = channel
-        self.channel_name = channel_name
+        self.user = user
         self.text = text
