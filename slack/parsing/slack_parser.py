@@ -1,5 +1,5 @@
-from pyparsing import *
-from . import symbols
+from pyparsing import CaselessLiteral, Group, NoMatch, Optional
+
 
 class SlackParser():
     def __init__(self, name):
@@ -9,12 +9,12 @@ class SlackParser():
         self.reinit_exprs()
 
     def reinit_exprs(self):
-        self.dm_expr =  self.dm_expr_head + self.command
+        self.dm_expr = self.dm_expr_head + self.command
         self.expr = self.expr_head + self.command
 
     def parse(self, s, dm=False):
         return (self.dm_expr if dm else self.expr).parseString(s)
 
-    def add_command(self, expr):
-        self.command |= expr
+    def add_command(self, expr, name):
+        self.command |= Group(expr).setResultsName(name)
         self.reinit_exprs()

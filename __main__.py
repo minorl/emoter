@@ -1,13 +1,15 @@
 import asyncio
 import config
-import emotebot
+import emote_bot
+import donger_bot
 from slack.slack_api import Slack
 
-slackapp = Slack(config.TOKEN)
-bot = emotebot.EmoteBot(config.CHANNELS, config.NAME)
+slackapp = Slack(config.TOKEN, config.NAME)
+e_bot = emote_bot.EmoteBot(config.CHANNELS)
+d_bot = donger_bot.DongerBot()
 
-slackapp.register_handler(bot.channel_command, channels=config.CHANNELS)
-slackapp.register_handler(bot.pm_command)
+e_bot.register_with_slack(slackapp)
+d_bot.register_with_slack(slackapp)
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(slackapp.run())
