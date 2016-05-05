@@ -1,6 +1,6 @@
 from collections import namedtuple
 from functools import reduce
-from mongoengine import connect, Document, StringField
+from mongoengine import Document, StringField
 from pyparsing import alphanums, CaselessLiteral, Forward, Literal, NoMatch, StringEnd, Word
 from slack.command import MessageCommand
 from slack.parsing import symbols
@@ -19,8 +19,6 @@ class DongerBot:
     def __init__(self, max_len, admins=set()):
         self.max_len = max_len
         self.admins = admins
-
-        connect('dongerbot')
 
         key_expr = Word(alphanums).setResultsName('key')
 

@@ -2,11 +2,14 @@ import asyncio
 import config
 import emote_bot
 import donger_bot
+from mongoengine import connect
 from slack.slack_api import Slack
+
+connect('dongerbot')
 
 slackapp = Slack(config.TOKEN, config.NAME)
 e_bot = emote_bot.EmoteBot(channels=config.EMOJI_CHANNELS)
-d_bot = donger_bot.DongerBot(max_len=config.MAX_BIND_LEN)
+d_bot = donger_bot.DongerBot(admins=config.ADMINS, max_len=config.MAX_BIND_LEN)
 
 e_bot.register_with_slack(slackapp)
 # Need to register DongerBot second since it can add new grammar elements
