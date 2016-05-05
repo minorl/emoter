@@ -46,13 +46,15 @@ class DongerBot:
                 f.write('{},{}\n'.format(key, output))
 
             self.current_binds_expr |= Literal(key)
-            self.print_bind_forward << self.current_binds_expr
+            self.print_bind_forward << self.current_binds_expr + StringEnd()
 
         if out_text:
             return MessageCommand(channel=out_channel, user=user, text=out_text)
 
     async def command_print_bind(self, user, in_channel, parsed):
-        return MessageCommand(channel=in_channel, user=user, text=self.binds[parsed['key']])
+        print(repr(parsed))
+        print(repr(parsed['key']))
+        return MessageCommand(channel=in_channel, user=user, text=self.binds[parsed['key'][0]])
 
     def register_with_slack(self, slack):
         slack.register_handler(expr=self.bind_expr,

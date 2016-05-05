@@ -37,11 +37,12 @@ class Slack:
         for u_name, u_id in self.u_name_to_id.items():
             response = requests.get(Slack.base_url + 'im.open', params={'token': self.token, 'user': u_id})
             body = response.json()
-            if body['ok'] is False and body['error'] == 'cannot_dm_bot':
+            if body['ok'] is False and body['error'] in {'cannot_dm_bot', 'user_disabled'}:
                 pass
             elif body['ok']:
                 self.u_name_to_dm[u_name] = body['channel']['id']
             else:
+                print(body)
                 raise ValueError
 
     async def run(self):
@@ -60,7 +61,12 @@ class Slack:
                 command = None
                 event = await self.get_event()
                 print("Got event", event)
-                if 'type' in event and event['type'] == 'message'\
+                if 'type' in event and event['type'] == 'group_joined':
+                    name = event['channel']['name']
+                    i = event['channel']['id']
+                    self.c_name_to_id[name] = i
+                    self.c_id_to_name[i] = name
+                elif 'type' in event and event['type'] == 'message'\
                    and 'channel' in event and event['channel']\
                    and 'text' in event\
                    and not ('reply_to' in event)\
