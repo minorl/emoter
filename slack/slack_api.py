@@ -85,8 +85,7 @@ class Slack:
                     except ParseException:
                         parsed = None
                     if not (parsed and name in self.handlers):
-                        command = MessageCommand(channel=None, user=user, text=self.help_message()) if is_dm else None
-                        continue
+                        command = MessageCommand(channel=None, user=self.u_id_to_name[user], text=self.help_message()) if is_dm else None
                     elif parsed and is_dm or (handler.all_channels or self.c_id_to_name[channel] in handler.channels):
                         command = await handler.func(user=self.u_id_to_name[user],
                                                      in_channel=None if is_dm else self.c_id_to_name[channel],
@@ -141,5 +140,7 @@ class Slack:
         for handler in self.handlers.values():
             if handler.doc:
                 res.append("{}:".format(handler.name))
-                res.append(handler.doc)
-                res.append("Allowed channels: {}".format("All" if handler.all_channels else handler.channels))
+                res.append("\t{}".format(handler.doc))
+                res.append("\tAllowed channels: {}".format("All" if handler.all_channels else handler.channels))
+
+        return '\n'.join(res)

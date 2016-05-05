@@ -12,7 +12,7 @@ class EmoteBot:
 
         self.emoter = Emoter()
 
-        self.emoji_name = 'command_emoji'
+        self.emoji_name = 'Emoji Text'
         self.emoji_expr = (Optional(symbols.channel_name) + symbols.emoji + symbols.message)
         self.next_use = defaultdict(float)
         self.delay = delay
