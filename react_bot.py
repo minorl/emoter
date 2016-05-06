@@ -1,6 +1,6 @@
 from collections import defaultdict
 from mongoengine import Document, StringField
-from pyparsing import CaselessLiteral, nums, Optional, StringEnd, White, Word
+from pyparsing import CaselessLiteral, Literal, nums, Optional, printables, StringEnd, White, Word
 from slack.command import EditReactionCommand, MessageCommand
 import slack.parsing.symbols as sym
 import re
@@ -14,7 +14,8 @@ class ReactDoc(Document):
 
 
 class ReactBot:
-    def __init__(self, slack, out_channels=set(), max_per_user=None):
+    def __init__(self, slack, admins=set(), out_channels=set(), max_per_user=None):
+        self.admins = admins
         self.out_channels = out_channels
         self.max_per_user = max_per_user
 
@@ -25,7 +26,8 @@ class ReactBot:
         self.clear_expr = CaselessLiteral('unreact') + sym.channel_name + Word(nums).setResultsName('index') + StringEnd()
 
         self.list_name = 'List Reactions'
-        self.list_expr = CaselessLiteral('list_react') + Optional(sym.channel_name) + StringEnd()
+        self.list_expr = CaselessLiteral('list_react') + (Optional(Literal('--here').setResultsName('here')) & Optional(Literal('--user') + Word(printables).setResultsName('user')))+ Optional(sym.channel_name) + StringEnd()
+
         self.load_reacts(slack)
 
     def load_reacts(self, slack):
@@ -71,6 +73,14 @@ class ReactBot:
         return command
 
     async def command_list(self, user, in_channel, parsed):
+        to_user = user
+        if 'user' in parsed and to_user in self.admins:
+            user = parsed['user']
+        elif 'user' in parsed:
+            return MessageCommand(user=to_user, text="Not allowed.")
+        else:
+            user = to_user
+
         one_channel = 'channel' in parsed
         reacts = defaultdict(list)
         for react in (ReactDoc.objects(user=user, channel=parsed['channel'])
@@ -87,7 +97,7 @@ class ReactBot:
             for i, (reg, em) in enumerate(l):
                 res.append("\t{}. {} --> :{}:".format(i, reg, em))
 
-        return MessageCommand(channel=None, user=user, text='\n'.join(res))
+        return MessageCommand(channel=in_channel if 'here' in parsed else None, user=to_user, text='\n'.join(res))
 
     def register_with_slack(self, slack):
         slack.register_handler(expr=self.create_expr,

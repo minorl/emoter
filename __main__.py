@@ -11,7 +11,7 @@ connect('dongerbot')
 slackapp = Slack(config.TOKEN, config.NAME)
 e_bot = emote_bot.EmoteBot(channels=config.EMOJI_CHANNELS)
 d_bot = donger_bot.DongerBot(admins=config.ADMINS, max_len=config.MAX_BIND_LEN)
-r_bot = react_bot.ReactBot(slackapp, out_channels=config.REACTION_CHANNELS, max_per_user=config.MAX_REACTS_PER_CHANNEL)
+r_bot = react_bot.ReactBot(slackapp, admins=config.ADMINS, out_channels=config.REACTION_CHANNELS, max_per_user=config.MAX_REACTS_PER_CHANNEL)
 
 e_bot.register_with_slack(slackapp)
 r_bot.register_with_slack(slackapp)
