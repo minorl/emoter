@@ -85,7 +85,7 @@ class ReactBot:
         for channel, l in reacts.items():
             res.append("Reactions in {}".format(channel))
             for i, (reg, em) in enumerate(l):
-                res.append("\t{}. {} --> {}".format(i, reg, em))
+                res.append("\t{}. {} --> :{}:".format(i, reg, em))
 
         return MessageCommand(channel=None, user=user, text='\n'.join(res))
 
