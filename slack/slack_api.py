@@ -1,5 +1,7 @@
+import asyncio
 from .command import MessageCommand
-from collections import namedtuple
+from collections import defaultdict, namedtuple
+from functools import partial
 from itertools import chain
 import json
 from pyparsing import ParseException
@@ -24,9 +26,11 @@ class Slack:
         self.users = None
         self.message_id = 0
         self.handlers = {}
+        self.reactions = defaultdict(lambda: defaultdict(set))
         self.parser = SlackParser(name)
         self.name = name
         self.get_emojis()
+        self.loaded_commands = []
 
     def get_emojis(self):
         res = requests.get(Slack.base_url + 'emoji.list', params={'token': self.token}).json()
@@ -45,6 +49,9 @@ class Slack:
                 print(body)
                 raise ValueError
 
+    def preload_commands(self, commands):
+        self.loaded_commands.extend(commands)
+
     async def run(self):
         response = requests.get(Slack.base_url + 'rtm.start', params={'token': self.token})
         body = response.json()
@@ -57,6 +64,11 @@ class Slack:
         url = body["url"]
 
         async with websockets.connect(url) as self.socket:
+            print("Running {} preloaded commands".format(len(self.loaded_commands)))
+
+            for c in self.loaded_commands:
+                await c.execute(self)
+
             while True:
                 command = None
                 event = await self.get_event()
@@ -66,14 +78,14 @@ class Slack:
                     i = event['channel']['id']
                     self.c_name_to_id[name] = i
                     self.c_id_to_name[i] = name
-                elif 'type' in event and event['type'] == 'message'\
-                   and 'channel' in event and event['channel']\
-                   and 'text' in event\
-                   and not ('reply_to' in event)\
-                   and not ('subtype' in event and event['subtype'] == 'bot_message'):
+                elif Slack.is_message(event):
+
                     user = event['user']
                     channel = event['channel']
                     is_dm = channel[0] == 'D'
+                    if not is_dm:
+                        await self.react(event)
+
                     if not (is_dm or event['text'][:len(self.name)].lower() == self.name):
                         continue
                     try:
@@ -91,7 +103,7 @@ class Slack:
                                                      in_channel=None if is_dm else self.c_id_to_name[channel],
                                                      parsed=parsed[name])
                 if command:
-                    await self.execute(command)
+                    await command.execute(self)
 
         del self.socket
         del self.c_name_to_id
@@ -100,11 +112,21 @@ class Slack:
         del self.u_id_to_name
         del self.u_name_to_dm
 
-    async def execute(self, command):
-        if isinstance(command, MessageCommand):
-            channel = self.c_name_to_id[command.channel] if command.channel else self.u_name_to_dm[command.user]
-            if len(command.text) < 4000:
-                await self.send(command.text, channel)
+    async def react(self, event):
+        loop = asyncio.get_event_loop()
+        futures = []
+        for u, reacts in self.reactions[event['channel']].items():
+            for reg, emoji in reacts:
+                if reg.search(event['text']):
+                    channel = event['channel']
+                    timestamp = event['ts']
+                    params = {'token': self.token, 'name': emoji, 'channel': channel, 'timestamp': timestamp}
+                    get = partial(requests.get, params=params)
+
+                    futures.append(loop.run_in_executor(None, get, Slack.base_url + 'reactions.add'))
+
+        for future in futures:
+            await future
 
     async def get_event(self):
         if self.socket is None:
@@ -144,3 +166,11 @@ class Slack:
                 res.append("\tAllowed channels: {}".format("All" if handler.all_channels else handler.channels))
 
         return '\n'.join(res)
+
+    @staticmethod
+    def is_message(event):
+        return 'type' in event and event['type'] == 'message'\
+               and 'channel' in event and event['channel']\
+               and 'text' in event\
+               and not ('reply_to' in event)\
+               and not ('subtype' in event and event['subtype'] == 'bot_message')

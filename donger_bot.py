@@ -23,13 +23,13 @@ class DongerBot:
         key_expr = Word(alphanums).setResultsName('key')
 
         self.bind_name = 'Make Bind'
-        self.bind_expr = CaselessLiteral('bind') + key_expr + symbols.tail.setResultsName('output')
+        self.bind_expr = CaselessLiteral('bind') + key_expr + symbols.tail.setResultsName('output') + StringEnd()
 
         self.unbind_name = 'Remove Bind'
-        self.unbind_expr = CaselessLiteral('unbind') + key_expr
+        self.unbind_expr = CaselessLiteral('unbind') + key_expr + StringEnd()
 
         self.list_name = 'List Binds'
-        self.list_expr = CaselessLiteral('list_binds')
+        self.list_expr = CaselessLiteral('list_binds') + StringEnd()
 
         self.print_bind_name = 'Display Bind'
         # Use a forward to allow updating expression
