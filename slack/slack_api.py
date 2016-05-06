@@ -115,6 +115,7 @@ class Slack:
     async def react(self, event):
         loop = asyncio.get_event_loop()
         futures = []
+        print(self.reactions)
         for u, reacts in self.reactions[event['channel']].items():
             for reg, emoji in reacts:
                 if reg.search(event['text']):
@@ -126,7 +127,9 @@ class Slack:
                     futures.append(loop.run_in_executor(None, get, Slack.base_url + 'reactions.add'))
 
         for future in futures:
-            await future
+            res = (await future).json()
+            if res['ok'] is not True:
+                print("Bad return:", res)
 
     async def get_event(self):
         if self.socket is None:

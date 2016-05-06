@@ -66,7 +66,7 @@ class ReactBot:
         if not 0 <= index < len(reacts):
             return MessageCommand(user=user, text="Invalid reaction number.")
         r_obj = react_objs[reacts[index]]
-        command = EditReactionCommand(channel=channel, user=user, regex=r_obj.regex, emoji=r_obj.emoji, remove=True)
+        command = EditReactionCommand(channel=channel, user=user, regex=re.compile(r_obj.regex, re.IGNORECASE), emoji=r_obj.emoji, remove=True)
         r_obj.delete()
         return command
 
@@ -96,7 +96,7 @@ class ReactBot:
                                all_channels=True,
                                accept_dm=True,
                                doc='Register a reaction for when a pattern occurs in a channel:\n'
-                                   '\treact <channel> <pattern> <emoji>')
+                                   '\treact <channel> <emoji> <pattern>')
 
         slack.register_handler(expr=self.clear_expr,
                                name=self.clear_name,

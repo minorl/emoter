@@ -30,6 +30,6 @@ class EditReactionCommand(Command):
     async def execute(self, slack):
         c_id = slack.c_name_to_id[self.channel]
         if self.remove:
-            slack.reactions[c_id][self.user].discard((self.regex, self.emoji))
+            slack.reactions[c_id][self.user].remove((self.regex, self.emoji))
         else:
             slack.reactions[c_id][self.user].add((self.regex, self.emoji))
