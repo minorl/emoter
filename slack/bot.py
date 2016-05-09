@@ -1,5 +1,4 @@
 from collections import namedtuple
-from functools import partial
 from .slack_api import Slack
 
 
@@ -34,7 +33,7 @@ class SlackBotMeta(type):
                 slack.register_handler(name=getattr(self, data.name) if data.name else '',
                                        expr=getattr(self, data.expr),
                                        doc=getattr(self, data.doc) if data.doc else '',
-                                       func=partial(f, self),
+                                       func=f,
                                        channels=getattr(self, data.channels) if data.channels else None,
                                        priority=data.priority)
         setattr(cls, '__init__', new_init)
