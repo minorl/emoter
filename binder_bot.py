@@ -15,12 +15,12 @@ class BindDoc(Document):
     output = StringField()
 
 
-class DongerBot:
+class BinderBot:
     def __init__(self, max_len, admins=set()):
         self.max_len = max_len
         self.admins = admins
 
-        key_expr = Word(alphanums).setResultsName('key')
+        key_expr = Word(alphanums + '{}').setResultsName('key')
 
         self.bind_name = 'Make Bind'
         self.bind_expr = CaselessLiteral('bind') + key_expr + symbols.tail.setResultsName('output') + StringEnd()

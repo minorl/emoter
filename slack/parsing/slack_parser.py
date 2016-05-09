@@ -2,9 +2,9 @@ from pyparsing import CaselessLiteral, Group, NoMatch, Optional
 
 
 class SlackParser():
-    def __init__(self, name):
-        self.dm_expr_head = Optional(CaselessLiteral(name))
-        self.expr_head = CaselessLiteral(name)
+    def __init__(self, alert='!'):
+        self.dm_expr_head = Optional(CaselessLiteral(alert))
+        self.expr_head = CaselessLiteral('!')
         self.command = NoMatch()
         self.reinit_exprs()
 

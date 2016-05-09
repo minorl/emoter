@@ -20,15 +20,16 @@ Handler = namedtuple('Handler', ['name', 'func', 'doc', 'all_channels', 'channel
 class Slack:
     base_url = 'https://slack.com/api/'
 
-    def __init__(self, token, name):
+    def __init__(self, token, alert='!'):
         self.token = token
+        self.alert = alert
+
         self.channels = None
         self.users = None
         self.message_id = 0
         self.handlers = {}
         self.reactions = defaultdict(lambda: defaultdict(set))
-        self.parser = SlackParser(name)
-        self.name = name
+        self.parser = SlackParser(self.alert)
         self.get_emojis()
         self.loaded_commands = []
 
@@ -86,7 +87,7 @@ class Slack:
                     if not is_dm:
                         await self.react(event)
 
-                    if not (is_dm or event['text'][:len(self.name)].lower() == self.name):
+                    if not (is_dm or event['text'][0] == self.alert):
                         continue
                     try:
                         parsed = self.parser.parse(event['text'], dm=is_dm)
