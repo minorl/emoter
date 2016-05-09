@@ -144,8 +144,8 @@ class Slack:
         print("[{}] Sending message: {}".format(channel, message))
         await self.socket.send(self.make_message(message, channel))
 
-    def register_handler(self, expr, name, func, all_channels=False, channels=set(), accept_dm=False, doc=None):
-        self.parser.add_command(expr, name)
+    def register_handler(self, expr, name, func, all_channels=False, channels=set(), accept_dm=False, doc=None, priority=0):
+        self.parser.add_command(expr, name, priority)
         handler = Handler(name=name,
                           func=func,
                           all_channels=all_channels,

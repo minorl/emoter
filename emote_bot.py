@@ -1,22 +1,26 @@
 from collections import defaultdict
 from emoter import Emoter
 from pyparsing import Optional
+from slack.bot import SlackBot, register
 from slack.command import MessageCommand
 from slack.parsing import symbols
 import time
 
 
-class EmoteBot:
-    def __init__(self, channels, delay=60):
+class EmoteBot(SlackBot):
+    def __init__(self, channels, delay=60, slack=None):
         self.channels = channels
 
         self.emoter = Emoter()
 
         self.emoji_name = 'Emoji Text'
         self.emoji_expr = (Optional(symbols.channel_name) + symbols.emoji + symbols.message)
+        self.emoji_doc = "Display text using emojis: [channel] <emoji> <message>"
+
         self.next_use = defaultdict(float)
         self.delay = delay
 
+    @register(name='emoji_name', expr='emoji_expr', channels='channels', doc='emoji_doc')
     async def command_emoji(self, user, in_channel, parsed):
         emotify = False
         if 'channel' in parsed and parsed['channel'] not in self.channels:
@@ -48,11 +52,3 @@ class EmoteBot:
         emoji = parsed['emoji']
         message = parsed['message']
         return self.emoter.make_phrase(' '.join(message).upper(), emoji)
-
-    def register_with_slack(self, slack):
-        slack.register_handler(expr=self.emoji_expr,
-                               name=self.emoji_name,
-                               func=self.command_emoji,
-                               channels=self.channels,
-                               accept_dm=True,
-                               doc="Display text using emojis: [channel] <emoji> <message>")
