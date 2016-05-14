@@ -1,7 +1,7 @@
 from collections import namedtuple
 from functools import reduce
 from mongoengine import Document, StringField
-from pyparsing import alphanums, CaselessLiteral, Forward, Literal, NoMatch, StringEnd, Word
+from pyparsing import alphanums, CaselessLiteral, Forward, Literal, NoMatch, Optional, StringEnd, Word
 from slack.bot import SlackBot, register
 from slack.command import MessageCommand
 from slack.parsing import symbols
@@ -51,8 +51,12 @@ class BinderBot(SlackBot):
 
         self.update_bind_expr()
 
+    @staticmethod
+    def _accumulator(acc, expr):
+        return acc | (expr + Optional(symbols.tail.setResultsName('formats')))
+
     def update_bind_expr(self):
-        self.print_bind_forward << reduce(lambda acc, i: acc | (i + symbols.tail.setResultsName('formats')), self.current_bind_exprs.values(), NoMatch()) + StringEnd()
+        self.print_bind_forward << reduce(self._accumulator, self.current_bind_exprs.values(), NoMatch()) + StringEnd()
 
     @register(name='bind_name', expr='bind_expr', doc='bind_doc')
     async def command_bind(self, user, in_channel, parsed):
@@ -105,13 +109,13 @@ class BinderBot(SlackBot):
 
     @register(name='print_bind_name', expr='print_bind_forward', priority=-1)
     async def command_print_bind(self, user, in_channel, parsed):
-		raw = self.binds[parsed['key'][0]].output
-		args = parsed['formats'].split(sep=' ')
-		out_channel = in_channel
-		
-		try:
-			output = raw.format(*args)
-		except IndexError:
-			output = "Not enough format arguments supplied, got {}".format(len(args))
-			out_channel = None
+        raw = self.binds[parsed['key'][0]].output
+        args = parsed['formats'].strip().split(sep=' ') if 'formats' in parsed else []
+        out_channel = in_channel
+
+        try:
+            output = raw.format(*args)
+        except IndexError:
+            output = "Not enough format arguments supplied, got {}".format(len(args))
+            out_channel = None
         return MessageCommand(channel=out_channel, user=user, text=output)
