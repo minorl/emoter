@@ -52,7 +52,7 @@ class BinderBot(SlackBot):
         self.update_bind_expr()
 
     def update_bind_expr(self):
-        self.print_bind_forward << reduce(lambda acc, i: acc | i, self.current_bind_exprs.values(), NoMatch()) + StringEnd()
+        self.print_bind_forward << reduce(lambda acc, i: acc | (i + symbols.tail.setResultsName('formats')), self.current_bind_exprs.values(), NoMatch()) + StringEnd()
 
     @register(name='bind_name', expr='bind_expr', doc='bind_doc')
     async def command_bind(self, user, in_channel, parsed):
@@ -105,4 +105,13 @@ class BinderBot(SlackBot):
 
     @register(name='print_bind_name', expr='print_bind_forward', priority=-1)
     async def command_print_bind(self, user, in_channel, parsed):
-        return MessageCommand(channel=in_channel, user=user, text=self.binds[parsed['key'][0]].output)
+		raw = self.binds[parsed['key'][0]].output
+		args = parsed['formats'].split(sep=' ')
+		out_channel = in_channel
+		
+		try:
+			output = raw.format(*args)
+		except IndexError:
+			output = "Not enough format arguments supplied, got {}".format(len(args))
+			out_channel = None
+        return MessageCommand(channel=out_channel, user=user, text=output)
