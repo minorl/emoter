@@ -4,3 +4,4 @@ pyparsing
 mongoengine
 numpy
 wordcloud
+Pillow

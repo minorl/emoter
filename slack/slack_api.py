@@ -1,11 +1,11 @@
-import asyncio
 from .command import MessageCommand
+from .history import HistoryDoc
+import asyncio
 from collections import defaultdict, namedtuple
 from datetime import datetime
 from functools import partial
 from itertools import chain
 import json
-from mongoengine import DateTimeField, Document, StringField
 from pyparsing import ParseException
 import requests
 from slack.parsing import SlackParser
@@ -17,13 +17,6 @@ Asynchronous Slack class
 '''
 
 Handler = namedtuple('Handler', ['name', 'func', 'doc', 'all_channels', 'channels', 'accept_dm'])
-
-
-class HistoryDoc(Document):
-    user = StringField()
-    channel = StringField()
-    text = StringField()
-    time = DateTimeField()
 
 
 class Slack:
@@ -113,8 +106,9 @@ class Slack:
                         command = await handler.func(user=self.u_id_to_name[user],
                                                      in_channel=None if is_dm else self.c_id_to_name[channel],
                                                      parsed=parsed[name])
-                if command:
-                    await command.execute(self)
+                while command:
+                    # Commands may return another command to be executed
+                    command = await command.execute(self)
 
         del self.socket
         del self.c_name_to_id
@@ -126,7 +120,6 @@ class Slack:
     async def react(self, event):
         loop = asyncio.get_event_loop()
         futures = []
-        print(self.reactions)
         for u, reacts in self.reactions[event['channel']].items():
             for reg, emoji in reacts:
                 if reg.search(event['text']):
@@ -157,8 +150,20 @@ class Slack:
     async def store_message(self, user, channel, text, is_dm):
         u_name = self.u_id_to_name[user]
         c_name = '#dm' if is_dm else self.c_id_to_name[channel]
-        if u_name != self.name:
+        if u_name != self.name and text and text[0] != self.alert:
             HistoryDoc(user=u_name, channel=c_name, text=text, time=datetime.now()).save()
+
+    async def upload_file(self, f_name, channel, user):
+        channel = channel if channel else self.u_name_to_dm[user]
+        with open(f_name, 'rb') as f:
+            res = requests.post(Slack.base_url + 'files.upload',
+                                params={'token': self.token,
+                                        'filetype': f_name.split('.')[-1],
+                                        'channels': channel,
+                                        'filename': f_name
+                                        },
+                                files={'file': f}
+                                )
 
     def register_handler(self, expr, name, func, all_channels=False, channels=set(), accept_dm=False, doc=None, priority=0):
         self.parser.add_command(expr, name, priority)
