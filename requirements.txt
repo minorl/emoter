@@ -2,3 +2,5 @@ requests
 websockets
 pyparsing
 mongoengine
+numpy
+wordcloud

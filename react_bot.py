@@ -15,7 +15,7 @@ class ReactDoc(Document):
 
 
 class ReactBot(SlackBot):
-    def __init__(self, admins=set(), out_channels=set(), max_per_user=None, slack=None):
+    def __init__(self, *args, slack=None, admins=set(), out_channels=set(), max_per_user=None):
         self.admins = admins
         self.out_channels = out_channels
         self.max_per_user = max_per_user

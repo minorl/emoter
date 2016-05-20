@@ -1,9 +1,11 @@
 import asyncio
 from .command import MessageCommand
 from collections import defaultdict, namedtuple
+from datetime import datetime
 from functools import partial
 from itertools import chain
 import json
+from mongoengine import DateTimeField, Document, StringField
 from pyparsing import ParseException
 import requests
 from slack.parsing import SlackParser
@@ -17,12 +19,20 @@ Asynchronous Slack class
 Handler = namedtuple('Handler', ['name', 'func', 'doc', 'all_channels', 'channels', 'accept_dm'])
 
 
+class HistoryDoc(Document):
+    user = StringField()
+    channel = StringField()
+    text = StringField()
+    time = DateTimeField()
+
+
 class Slack:
     base_url = 'https://slack.com/api/'
 
-    def __init__(self, token, alert='!'):
+    def __init__(self, token, alert='!', name=''):
         self.token = token
         self.alert = alert
+        self.name = name
 
         self.channels = None
         self.users = None
@@ -74,16 +84,18 @@ class Slack:
                 command = None
                 event = await self.get_event()
                 print("Got event", event)
-                if 'type' in event and event['type'] == 'group_joined':
+                if Slack.is_group_join(event):
                     name = event['channel']['name']
                     i = event['channel']['id']
                     self.c_name_to_id[name] = i
                     self.c_id_to_name[i] = name
                 elif Slack.is_message(event):
-
                     user = event['user']
                     channel = event['channel']
                     is_dm = channel[0] == 'D'
+
+                    await self.store_message(user=user, channel=channel, text=event['text'], is_dm=is_dm)
+
                     if not is_dm:
                         await self.react(event)
 
@@ -142,6 +154,12 @@ class Slack:
         print("[{}] Sending message: {}".format(channel, message))
         await self.socket.send(self.make_message(message, channel))
 
+    async def store_message(self, user, channel, text, is_dm):
+        u_name = self.u_id_to_name[user]
+        c_name = '#dm' if is_dm else self.c_id_to_name[channel]
+        if u_name != self.name:
+            HistoryDoc(user=u_name, channel=c_name, text=text, time=datetime.now()).save()
+
     def register_handler(self, expr, name, func, all_channels=False, channels=set(), accept_dm=False, doc=None, priority=0):
         self.parser.add_command(expr, name, priority)
         handler = Handler(name=name,
@@ -176,3 +194,7 @@ class Slack:
                and 'text' in event\
                and not ('reply_to' in event)\
                and not ('subtype' in event and event['subtype'] == 'bot_message')
+
+    @staticmethod
+    def is_group_join(event):
+        return 'type' in event and event['type'] == 'group_joined'
