@@ -2,7 +2,6 @@ from .command import MessageCommand
 from .history import HistoryDoc
 import asyncio
 from collections import defaultdict, namedtuple
-from datetime import datetime
 from functools import partial
 from itertools import chain
 import json
@@ -22,10 +21,11 @@ Handler = namedtuple('Handler', ['name', 'func', 'doc', 'all_channels', 'channel
 class Slack:
     base_url = 'https://slack.com/api/'
 
-    def __init__(self, token, alert='!', name=''):
+    def __init__(self, token, alert='!', name='', load_history=False):
         self.token = token
         self.alert = alert
         self.name = name
+        self.do_load_history = load_history
 
         self.channels = None
         self.users = None
@@ -64,6 +64,9 @@ class Slack:
         self.u_id_to_name = {u['id']: u['name'] for u in body['users']}
         self.u_name_to_id = {u['name']: u['id'] for u in body['users']}
         self.get_dm_rooms()
+        if self.do_load_history:
+            await self.load_history()
+            self.do_load_history = False
 
         url = body["url"]
 
@@ -87,12 +90,11 @@ class Slack:
                     channel = event['channel']
                     is_dm = channel[0] == 'D'
 
-                    await self.store_message(user=user, channel=channel, text=event['text'], is_dm=is_dm)
-
                     if not is_dm:
                         await self.react(event)
 
                     if not (is_dm or event['text'][0] == self.alert):
+                        await self.store_message(user=user, channel=channel, text=event['text'], ts=event['ts'])
                         continue
                     try:
                         parsed = self.parser.parse(event['text'], dm=is_dm)
@@ -147,23 +149,51 @@ class Slack:
         print("[{}] Sending message: {}".format(channel, message))
         await self.socket.send(self.make_message(message, channel))
 
-    async def store_message(self, user, channel, text, is_dm):
+    async def load_history(self):
+        HistoryDoc.objects().delete()
+        print("History Cleared")
+        found_messages = 0
+        for channel in self.c_id_to_name:
+            oldest = 0
+            has_more = True
+            while has_more:
+                res = requests.get(Slack.base_url + '/channels.history',
+                                   params={'token': self.token,
+                                           'channel': channel,
+                                           'oldest': oldest,
+                                           'inclusive': False})
+                data = res.json()
+                has_more = data['has_more']
+                messages = data['messages']
+                largest_ts = 0
+                for m in messages:
+                    if Slack.is_message(m, no_channel=True):
+                        await self.store_message(channel=channel, user=m['user'], text=m['text'], ts=m['ts'])
+                    ts = float(m['ts'])
+                    if ts > largest_ts:
+                        largest_ts = ts
+
+                oldest = largest_ts
+                found_messages += len(messages)
+                print("Have {} messages".format(found_messages))
+
+    async def store_message(self, user, channel, text, ts):
         u_name = self.u_id_to_name[user]
-        c_name = '#dm' if is_dm else self.c_id_to_name[channel]
+        c_name = self.c_id_to_name[channel]
         if u_name != self.name and text and text[0] != self.alert:
-            HistoryDoc(user=u_name, channel=c_name, text=text, time=datetime.now()).save()
+            HistoryDoc(user=u_name, channel=c_name, text=text, time=ts).save()
 
     async def upload_file(self, f_name, channel, user):
         channel = channel if channel else self.u_name_to_dm[user]
         with open(f_name, 'rb') as f:
-            res = requests.post(Slack.base_url + 'files.upload',
-                                params={'token': self.token,
-                                        'filetype': f_name.split('.')[-1],
-                                        'channels': channel,
-                                        'filename': f_name
-                                        },
-                                files={'file': f}
-                                )
+            requests.post(Slack.base_url + 'files.upload',
+                          params={'token': self.token,
+                                  'filetype': f_name.split('.')[-1],
+                                  'channels': channel,
+                                  'filename': f_name
+                                  },
+                          files={'file': f}
+                          )
 
     def register_handler(self, expr, name, func, all_channels=False, channels=set(), accept_dm=False, doc=None, priority=0):
         self.parser.add_command(expr, name, priority)
@@ -193,9 +223,9 @@ class Slack:
         return '\n'.join(res)
 
     @staticmethod
-    def is_message(event):
+    def is_message(event, no_channel=False):
         return 'type' in event and event['type'] == 'message'\
-               and 'channel' in event and event['channel']\
+               and (no_channel or ('channel' in event and event['channel']))\
                and 'text' in event\
                and not ('reply_to' in event)\
                and not ('subtype' in event and event['subtype'] == 'bot_message')

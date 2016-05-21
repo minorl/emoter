@@ -44,7 +44,6 @@ Record = namedtuple('Record', ['channel', 'user', 'text', 'times'])
 class HistoryCommand(Command):
     """
     Pass a callback to slack with signature: f(hist_list) where hist is a list of (channel, user, text, time) namedtuples.
-    For direct messages, channel will be #dm.
     """
     def __init__(self, callback, channel=None, user=None):
         self.callback = callback

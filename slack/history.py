@@ -1,8 +1,8 @@
-from mongoengine import DateTimeField, Document, StringField
+from mongoengine import Document, StringField
 
 
 class HistoryDoc(Document):
     user = StringField()
     channel = StringField()
     text = StringField()
-    time = DateTimeField()
+    time = StringField()

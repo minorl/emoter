@@ -61,13 +61,6 @@ class WordcloudBot(SlackBot):
     @staticmethod
     async def make_wordcloud(text, image_file=None):
         kwargs = {}
-        import random
-
-        def make_random_word():
-            l = random.randint(1, 3)
-            return ''.join(chr(random.randint(ord('a'), ord('z'))) for _ in range(l))
-
-        text += ' '.join(make_random_word() for _ in range(2000))
         if image_file:
             ttd_coloring = np.array(Image.open(image_file))
             kwargs['mask'] = ttd_coloring
