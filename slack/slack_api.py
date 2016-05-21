@@ -154,21 +154,31 @@ class Slack:
         print("History Cleared")
         found_messages = 0
         for channel in self.c_id_to_name:
+            url = Slack.base_url + ('channels.history' if channel[0] == 'C' else 'groups.history')
             oldest = 0
             has_more = True
             while has_more:
-                res = requests.get(Slack.base_url + '/channels.history',
+                res = requests.get(url,
                                    params={'token': self.token,
                                            'channel': channel,
                                            'oldest': oldest,
                                            'inclusive': False})
                 data = res.json()
+                if not 'has_more' in data:
+                    print(data)
+                    print(channel)
+                    print(self.c_id_to_name[channel])
+                    exit()
                 has_more = data['has_more']
                 messages = data['messages']
                 largest_ts = 0
                 for m in messages:
                     if Slack.is_message(m, no_channel=True):
-                        await self.store_message(channel=channel, user=m['user'], text=m['text'], ts=m['ts'])
+                        try:
+                            await self.store_message(channel=channel, user=m['user'], text=m['text'], ts=m['ts'])
+                        except KeyError:
+                            print([k for k in m])
+                            exit()
                     ts = float(m['ts'])
                     if ts > largest_ts:
                         largest_ts = ts
@@ -228,7 +238,7 @@ class Slack:
                and (no_channel or ('channel' in event and event['channel']))\
                and 'text' in event\
                and not ('reply_to' in event)\
-               and not ('subtype' in event and event['subtype'] == 'bot_message')
+               and not ('subtype' in event and (event['subtype'] == 'bot_message' or event['subtype'] == 'file_comment'))
 
     @staticmethod
     def is_group_join(event):
