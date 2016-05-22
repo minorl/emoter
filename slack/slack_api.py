@@ -200,7 +200,7 @@ class Slack:
                           params={'token': self.token,
                                   'filetype': f_name.split('.')[-1],
                                   'channels': channel,
-                                  'filename': f_name
+                                  'filename': self.name + ' upload'
                                   },
                           files={'file': f}
                           )
@@ -232,13 +232,15 @@ class Slack:
 
         return '\n'.join(res)
 
+    disallowed_subtypes = {'bot_message', 'file_comment', 'file_share'}
+
     @staticmethod
     def is_message(event, no_channel=False):
         return 'type' in event and event['type'] == 'message'\
                and (no_channel or ('channel' in event and event['channel']))\
                and 'text' in event\
                and not ('reply_to' in event)\
-               and not ('subtype' in event and (event['subtype'] == 'bot_message' or event['subtype'] == 'file_comment'))
+               and not ('subtype' in event and event['subtype'] in Slack.disallowed_subtypes)
 
     @staticmethod
     def is_group_join(event):

@@ -49,13 +49,16 @@ class WordcloudBot(SlackBot):
         try:
             image_file = await WordcloudBot.get_image(image_url) if image_url else None
         except ValueError:
-            return MessageCommand(channel='None', user=user, text='Image {} not found.'.format(image_url))
+            return MessageCommand(channel=None, user=user, text='Image {} not found.'.format(image_url))
 
         text = (rec.text for rec in hist_list)
         # Leslie's regex for cleaning mentions, emoji and uploads
         text = (re.sub('<[^>]*>|:[^\s:]*:|uploaded a file:', '', t) for t in text)
 
-        out_file = await WordcloudBot.make_wordcloud(' '.join(text), image_file)
+        try:
+            out_file = await WordcloudBot.make_wordcloud(' '.join(text), image_file)
+        except NotImplementedError as e:
+            return MessageCommand(channel=None, user=user, text="Apparently can't handle that image: {}".format(e.message()))
         return UploadCommand(channel=in_channel, user=user, file_name=out_file, delete=True)
 
     @staticmethod
@@ -92,3 +95,4 @@ class WordcloudBot(SlackBot):
                 r.raw.decode_content = True
                 shutil.copyfileobj(r.raw, f)
             return out_name
+        raise ValueError
