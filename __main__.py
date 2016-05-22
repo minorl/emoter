@@ -1,8 +1,9 @@
 import argparse
 import asyncio
 import config
-import emote_bot
 import binder_bot
+import emote_bot
+import quote_bot
 import react_bot
 from mongoengine import connect
 import wordcloud_bot
@@ -18,6 +19,7 @@ slackapp = Slack(config.TOKEN, config.ALERT, config.NAME, load_history=args.load
 e_bot = emote_bot.EmoteBot(channels=config.EMOJI_CHANNELS, slack=slackapp)
 d_bot = binder_bot.BinderBot(admins=config.ADMINS, max_len=config.MAX_BIND_LEN, slack=slackapp)
 r_bot = react_bot.ReactBot(admins=config.ADMINS, out_channels=config.REACTION_CHANNELS, max_per_user=config.MAX_REACTS_PER_CHANNEL, slack=slackapp)
+q_bot = quote_bot.QuoteBot(slack=slackapp)
 wc_bot = wordcloud_bot.WordcloudBot(slack=slackapp)
 
 
