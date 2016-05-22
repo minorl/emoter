@@ -17,10 +17,10 @@ class WordcloudBot(SlackBot):
     def __init__(self, slack):
         self.name = 'Display a wordcloud'
         self.expr = (CaselessLiteral('wordcloud') +
-                     Optional(symbols.flag_with_arg('user', symbols.user_name)) +
-                     Optional(symbols.flag_with_arg('channel', symbols.channel_name)) +
-                     Optional(symbols.flag('all_channels')) +
-                     Optional(symbols.flag_with_arg('image', symbols.link)))
+                     (Optional(symbols.flag_with_arg('user', symbols.user_name)) &
+                     Optional(symbols.flag_with_arg('channel', symbols.channel_name)) &
+                     Optional(symbols.flag('all_channels')) &
+                     Optional(symbols.flag_with_arg('image', symbols.link))))
 
         self.doc = ('Make a wordcloud using chat history, with optional filters:\n'
                     '\twordcloud [--user <user>] [--channel <channel> | --all_channels] [--image <image>]')
