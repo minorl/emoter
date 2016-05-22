@@ -6,7 +6,7 @@ message = OneOrMore(Word(alphanums + "#")).setResultsName('message')
 tail = CharsNotIn('').setResultsName('tail')
 channel_name = Word(alphanums + '-').setResultsName('channel')
 
-user_name = Word(alphanums + '-')
+user_name = Word(alphanums + '-_.')
 
 link = Word(printables)
 

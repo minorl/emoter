@@ -63,15 +63,25 @@ class Slack:
         self.c_id_to_name = {v: k for k, v in self.c_name_to_id.items()}
         self.u_id_to_name = {u['id']: u['name'] for u in body['users']}
         self.u_name_to_id = {u['name']: u['id'] for u in body['users']}
+
+        print('Users: ')
+        for u in self.u_name_to_id:
+            print('\t' + u)
+
+        print()
+        print('Channels: ')
+        for c in self.c_name_to_id:
+            print('\t' + c)
+
         self.get_dm_rooms()
         if self.do_load_history:
             await self.load_history()
             self.do_load_history = False
 
-        url = body["url"]
+        url = body['url']
 
         async with websockets.connect(url) as self.socket:
-            print("Running {} preloaded commands".format(len(self.loaded_commands)))
+            print('Running {} preloaded commands'.format(len(self.loaded_commands)))
 
             for c in self.loaded_commands:
                 await c.execute(self)
@@ -79,7 +89,7 @@ class Slack:
             while True:
                 command = None
                 event = await self.get_event()
-                print("Got event", event)
+                print('Got event', event)
                 if Slack.is_group_join(event):
                     name = event['channel']['name']
                     i = event['channel']['id']
@@ -135,23 +145,23 @@ class Slack:
         for future in futures:
             res = (await future).json()
             if res['ok'] is not True:
-                print("Bad return:", res)
+                print('Bad return:', res)
 
     async def get_event(self):
         if self.socket is None:
-            raise ValueError("Must be connected to listen")
+            raise ValueError('Must be connected to listen')
         event = await self.socket.recv()
         return json.loads(event)
 
     async def send(self, message, channel):
         if self.socket is None:
-            raise ValueError("Must be connected to send")
-        print("[{}] Sending message: {}".format(channel, message))
+            raise ValueError('Must be connected to send')
+        print('[{}] Sending message: {}'.format(channel, message))
         await self.socket.send(self.make_message(message, channel))
 
     async def load_history(self):
         HistoryDoc.objects().delete()
-        print("History Cleared")
+        print('History Cleared')
         found_messages = 0
         for channel in self.c_id_to_name:
             url = Slack.base_url + ('channels.history' if channel[0] == 'C' else 'groups.history')
@@ -185,7 +195,7 @@ class Slack:
 
                 oldest = largest_ts
                 found_messages += len(messages)
-                print("Have {} messages".format(found_messages))
+                print('Have {} messages'.format(found_messages))
 
     async def store_message(self, user, channel, text, ts):
         u_name = self.u_id_to_name[user]
@@ -217,18 +227,18 @@ class Slack:
 
     def make_message(self, text, channel_id):
         m_id, self.message_id = self.message_id, self.message_id + 1
-        return json.dumps({"id": m_id,
-                           "type": "message",
-                           "channel": channel_id,
-                           "text": text})
+        return json.dumps({'id': m_id,
+                           'type': 'message',
+                           'channel': channel_id,
+                           'text': text})
 
     def help_message(self):
         res = []
         for handler in self.handlers.values():
             if handler.doc:
-                res.append("{}:".format(handler.name))
-                res.append("\t{}".format(handler.doc))
-                res.append("\tAllowed channels: {}".format("All" if handler.all_channels else handler.channels))
+                res.append('{}:'.format(handler.name))
+                res.append('\t{}'.format(handler.doc))
+                res.append('\tAllowed channels: {}'.format('All' if handler.all_channels else handler.channels))
 
         return '\n'.join(res)
 
