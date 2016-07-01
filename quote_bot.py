@@ -31,6 +31,8 @@ class QuoteBot(SlackBot):
         return HistoryCommand(**kwargs)
 
     async def _quoter_callback(self, out_channel, hist_list):
+        if not hist_list:
+            return None
         quote = random.choice(hist_list)
         year = time.strftime('%Y', time.localtime(float(quote.time)))
         return MessageCommand(channel=out_channel, user=None, text='> {}\n-{} {}'.format(quote.text, quote.user, year))
