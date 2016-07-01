@@ -1,11 +1,12 @@
 import argparse
 import asyncio
-import config
 import binder_bot
+import config
 import emote_bot
+from mongoengine import connect
 import quote_bot
 import react_bot
-from mongoengine import connect
+import twitch_bot
 import wordcloud_bot
 from slack.slack_api import Slack
 
@@ -22,6 +23,10 @@ r_bot = react_bot.ReactBot(admins=config.ADMINS, out_channels=config.REACTION_CH
 q_bot = quote_bot.QuoteBot(slack=slackapp)
 wc_bot = wordcloud_bot.WordcloudBot(slack=slackapp)
 
+twitch_alias = 'twitch_db'
+connect(config.TWITCH_DB_NAME, alias=twitch_alias)
+
+t_bot = twitch_bot.TwitchBot(twitch_alias, min_length=config.MIN_MARKOV_LENGTH, slack=slackapp)
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(slackapp.run())

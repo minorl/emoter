@@ -1,0 +1,3 @@
+[submodule "twitchlogger"]
+	path = twitchlogger
+	url = git@github.com:davisyoshida/twitchlogger.git
