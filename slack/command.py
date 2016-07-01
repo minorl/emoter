@@ -38,7 +38,7 @@ class EditReactionCommand(Command):
             slack.reactions[c_id][self.user].add((self.regex, self.emoji))
 
 
-Record = namedtuple('Record', ['channel', 'user', 'text', 'times'])
+Record = namedtuple('Record', ['channel', 'user', 'text', 'time'])
 
 
 class HistoryCommand(Command):

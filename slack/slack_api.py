@@ -90,12 +90,7 @@ class Slack:
                 command = None
                 event = await self.get_event()
                 print('Got event', event)
-                if Slack.is_group_join(event):
-                    name = event['channel']['name']
-                    i = event['channel']['id']
-                    self.c_name_to_id[name] = i
-                    self.c_id_to_name[i] = name
-                elif Slack.is_message(event):
+                if Slack.is_message(event):
                     user = event['user']
                     channel = event['channel']
                     is_dm = channel[0] == 'D'
@@ -118,6 +113,13 @@ class Slack:
                         command = await handler.func(user=self.u_id_to_name[user],
                                                      in_channel=None if is_dm else self.c_id_to_name[channel],
                                                      parsed=parsed[name])
+
+                elif Slack.is_group_join(event):
+                    name = event['channel']['name']
+                    i = event['channel']['id']
+                    self.c_name_to_id[name] = i
+                    self.c_id_to_name[i] = name
+
                 while command:
                     # Commands may return another command to be executed
                     command = await command.execute(self)
@@ -174,7 +176,7 @@ class Slack:
                                            'oldest': oldest,
                                            'inclusive': False})
                 data = res.json()
-                if not 'has_more' in data:
+                if 'has_more' not in data:
                     print(data)
                     print(channel)
                     print(self.c_id_to_name[channel])
@@ -242,15 +244,13 @@ class Slack:
 
         return '\n'.join(res)
 
-    disallowed_subtypes = {'bot_message', 'file_comment', 'file_share'}
-
     @staticmethod
     def is_message(event, no_channel=False):
         return 'type' in event and event['type'] == 'message'\
                and (no_channel or ('channel' in event and event['channel']))\
                and 'text' in event\
                and not ('reply_to' in event)\
-               and not ('subtype' in event and event['subtype'] in Slack.disallowed_subtypes)
+               and 'subtype' not in event
 
     @staticmethod
     def is_group_join(event):

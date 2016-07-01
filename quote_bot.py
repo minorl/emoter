@@ -12,8 +12,10 @@ class QuoteBot(SlackBot):
         self.name = 'Randomly quote someone.'
         self.expr = (CaselessLiteral('quote') +
                      Optional(symbols.flag_with_arg('channel', symbols.channel_name)) +
-                     Optional(symbols.u_name.setResultsName('user'))
+                     Optional(symbols.user_name.setResultsName('user'))
                      )
+        self.doc = ('Get a random quote:\n'
+                    '\tquote [--channel <channel>] [user]')
 
     @register(name='name', expr='expr', doc='doc')
     async def command_quote(self, user, in_channel, parsed):
@@ -22,13 +24,13 @@ class QuoteBot(SlackBot):
             kwargs['user'] = parsed['user']
 
         if 'channel' in parsed:
-            kwargs['channel']
+            kwargs['channel'] = parsed['channel']
 
-        kwargs['callback'] = partial(self._quoter_callback(in_channel))
+        kwargs['callback'] = partial(self._quoter_callback, in_channel)
 
         return HistoryCommand(**kwargs)
 
     async def _quoter_callback(self, out_channel, hist_list):
         quote = random.choice(hist_list)
-        year = time.strftime('%Y', time.localtime(int(quote.ts)))
-        return MessageCommand(channel=out_channel, user=None, text='> {}\n{} {}'.format(quote.text, quote.user, year))
+        year = time.strftime('%Y', time.localtime(float(quote.time)))
+        return MessageCommand(channel=out_channel, user=None, text='> {}\n-{} {}'.format(quote.text, quote.user, year))
