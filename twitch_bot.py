@@ -16,8 +16,9 @@ class TwitchBot(SlackBot):
     async def command_twitch(self, user, in_channel, parsed):
         # None if not found
         twitch_channel = parsed.get('twitch_channel')
-        if not twitch_channel.startswith('#'):
+        if twitch_channel and not twitch_channel.startswith('#'):
             twitch_channel = '#' + twitch_channel
+
         if twitch_channel not in self.markov.probabilities:
             out_text = "Channel {} not recognized. If you would like this channel added, ask a bot admin.".format(twitch_channel)
             out_channel = None
