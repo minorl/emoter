@@ -1,4 +1,4 @@
-from pyparsing import alphanums, CaselessLiteral, Optional, Word
+from pyparsing import alphanums, CaselessLiteral, Optional, StringEnd, Word
 from slack.bot import SlackBot, register
 from slack.command import MessageCommand
 from twitchlogger.markov import MarkovTwitchEmulator
@@ -9,7 +9,7 @@ class TwitchBot(SlackBot):
         self.markov = MarkovTwitchEmulator(twitch_db_alias, min_length=min_length)
 
         self.twitch_name = 'Twitch Chat'
-        self.twitch_expr = (CaselessLiteral('twitch') + Optional(Word(alphanums + '_-').setResultsName('twitch_channel')))
+        self.twitch_expr = (CaselessLiteral('twitch') + Optional(Word(alphanums + '_-').setResultsName('twitch_channel'))) + StringEnd()
         self.twitch_doc = "Markov emulate a twitch channel: twitch [channel]"
 
     @register(name='twitch_name', expr='twitch_expr', doc='twitch_doc')
