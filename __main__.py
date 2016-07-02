@@ -3,6 +3,7 @@ import asyncio
 import binder_bot
 import config
 import emote_bot
+import haiku_bot
 from mongoengine import connect
 import quote_bot
 import react_bot
@@ -27,6 +28,8 @@ twitch_alias = 'twitch_db'
 connect(config.TWITCH_DB_NAME, alias=twitch_alias)
 
 t_bot = twitch_bot.TwitchBot(twitch_alias, min_length=config.MIN_MARKOV_LENGTH, slack=slackapp)
+
+h_bot = haiku_bot.HaikuBot(slack=slackapp)
 
 loop = asyncio.get_event_loop()
 loop.run_until_complete(slackapp.run())
