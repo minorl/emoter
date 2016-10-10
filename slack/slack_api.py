@@ -105,7 +105,7 @@ class Slack:
 
                     if not (is_dm or event['text'][0] == self.alert):
                         for handler in self.unfiltered_handlers:
-                            if handler.channels is None or channel in handler.channels() or is_dm:
+                            if handler.channels is None or channel_name in handler.channels or is_dm:
                                 command = await handler.func(user=user_name, in_channel=channel_name, message=event['text'])
                                 await self.exhaust_command(command)
 

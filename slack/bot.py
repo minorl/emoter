@@ -6,9 +6,6 @@ HandlerData = namedtuple('HandlerData', ['name', 'expr', 'channels', 'doc', 'pri
 
 
 def register(name=None, expr=None, channels=None, doc=None, priority=0):
-    if not expr:
-        raise ValueError("Must specify an expression")
-
     def wrap(f):
         f._slack_handler_data = HandlerData(name, expr, channels, doc, priority)
         return f
@@ -31,7 +28,7 @@ class SlackBotMeta(type):
                 f = getattr(self, name)
                 data = f._slack_handler_data
                 slack.register_handler(name=getattr(self, data.name) if data.name else '',
-                                       expr=getattr(self, data.expr),
+                                       expr=getattr(self, data.expr) if data.expr else None,
                                        doc=getattr(self, data.doc) if data.doc else '',
                                        func=f,
                                        channels=getattr(self, data.channels) if data.channels else None,

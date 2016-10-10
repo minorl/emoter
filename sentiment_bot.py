@@ -1,11 +1,16 @@
+from collections import defaultdict
+import config
 from functools import partial
 import numpy as np
 from pyparsing import CaselessLiteral, Optional, StringEnd
+import random
 from sentiment import lstm
 from slack.bot import register, SlackBot
 from slack.command import HistoryCommand, MessageCommand
 from slack.parsing import symbols
 import time
+
+COOLDOWN = 50
 
 
 class SentimentBot(SlackBot):
@@ -24,8 +29,17 @@ class SentimentBot(SlackBot):
         self.extrema_doc = ('Show a particularly grumpy, happy or meh quote:\n'
                             '\t(grumpy|happy|meh) [--user <user>]')
 
-        self.model = lstm.load_model(session)
-        self.session = session
+        self.judge_name = 'Measure sentiment'
+        self.judge_expr = CaselessLiteral('lyte') + symbols.tail.setResultsName('text') + StringEnd()
+        self.judge_doc = ('Evaluate the sentiment of a piece of text:\n'
+                          '\tlyte <message>')
+
+        self.sentiments = defaultdict(list)
+        self.cooldowns = defaultdict(int)
+        self.monitor_channels = config.SENTIMENT_MONITOR_CHANNELS
+
+        model = lstm.load_model(session)
+        self.predict = partial(model.predict, session)
 
     @register(name='name', expr='expr', doc='doc')
     async def command_stats(self, user, in_channel, parsed):
@@ -39,7 +53,7 @@ class SentimentBot(SlackBot):
     async def _stats_callback(self, out_channel, user, hist_list):
         if not hist_list:
             return
-        softmaxes = [self.model.predict(self.session, q.text) for q in hist_list]
+        softmaxes = [self.predict(q.text) for q in hist_list]
         counts = [0, 0]
         for s in softmaxes:
             # Exclude neutral val
@@ -59,6 +73,29 @@ class SentimentBot(SlackBot):
     async def _extrema_callback(self, index, out_channel, user, hist_list):
         if not hist_list:
             return
-        quote = max(hist_list, key=lambda q: self.model.predict(self.session, q.text)[index])
+        quote = max(hist_list, key=lambda q: self.predict(q.text)[index])
         year = time.strftime('%Y', time.localtime(float(quote.time)))
         return MessageCommand(channel=out_channel, user=user, text='> {}\n-{} {}'.format(quote.text, quote.user, year))
+
+    @register(name='judge_name', expr='judge_expr', doc='judge_doc')
+    async def command_judge(self, user, in_channel, parsed):
+        sent = self.predict(parsed['text'])
+        sent *= 100
+        return MessageCommand(text='Positive: {:.0f}% Negative: {:.0f}%'.format(sent[2], sent[0]), channel=in_channel, user=user)
+
+    @register(channels='monitor_channels')
+    async def sentiment_monitor(self, user, in_channel, message):
+        if not in_channel:
+            return
+        neg, _, pos = self.predict(message)
+        channel_sentiment = self.sentiments[in_channel]
+        channel_sentiment.append(pos + 0.2 > neg)
+        if len(channel_sentiment) > 10:
+            channel_sentiment.pop(0)
+
+        self.cooldowns[in_channel] -= 1
+        if self.cooldowns[in_channel] <= 0 and channel_sentiment.count(False) >= 7:
+            self.cooldowns[in_channel] = COOLDOWN
+            return MessageCommand(
+                    text='You guys should cheer up. http://placekitten.com/{}/{}'.format(random.randint(300, 500), random.randint(300, 500)),
+                    channel=in_channel)
