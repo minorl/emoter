@@ -1,3 +1,8 @@
 config.py
 testdata
-wordcloud.png
+*.png
+sentiment/training.1600000.processed.noemoticon.csv
+sentiment/trainingandtestdata.zip
+sentiment/testdata.manual.2009.06.14.csv
+sentiment/saved_models
+sentiment/glove_embedding.txt

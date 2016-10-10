@@ -166,7 +166,7 @@ class SentimentLSTM:
             self._input_placeholder: np.expand_dims(vec, 0),
             self._length_placeholder: [len(vec)]
         }
-        return session.run(self._softmax_output, feed_dict=feed_dict)
+        return session.run(self._softmax_output, feed_dict=feed_dict)[0]
 
     @property
     def saver(self):
