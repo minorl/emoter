@@ -7,9 +7,12 @@ import haiku_bot
 from mongoengine import connect
 import quote_bot
 import react_bot
+import sentiment_bot
 import twitch_bot
 import wordcloud_bot
+
 from slack.slack_api import Slack
+import tensorflow as tf
 
 parser = argparse.ArgumentParser(description='A simple slack bot')
 parser.add_argument('--load_history', action='store_true')
@@ -31,5 +34,7 @@ t_bot = twitch_bot.TwitchBot(twitch_alias, min_length=config.MIN_MARKOV_LENGTH, 
 
 h_bot = haiku_bot.HaikuBot(slack=slackapp)
 
-loop = asyncio.get_event_loop()
-loop.run_until_complete(slackapp.run())
+with tf.Graph().as_default(), tf.Session() as session:
+    s_bot = sentiment_bot.SentimentBot(session=session, slack=slackapp)
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(slackapp.run())

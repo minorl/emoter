@@ -24,7 +24,7 @@ class SlackBotMeta(type):
         def new_init(self, *args, **kwargs):
             slack = kwargs.get('slack', None)
             if not isinstance(slack, Slack):
-                raise TypeError('Function __init__ of a class which inherits from SlackBot must have a keyword argument "slack" of type Slack.')
+                raise TypeError('Function __init__ of a class which inherits from SlackBot must receive a keyword argument "slack" of type Slack.')
 
             cls_dict['__init__'](self, *args, **kwargs)
             for name in names:

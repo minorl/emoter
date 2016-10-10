@@ -13,6 +13,5 @@ class HaikuBot(SlackBot):
         self.haiku = Haiku()
 
     @register(name='haiku_name', expr='haiku_expr', doc='haiku_doc')
-    async def command_twitch(self, user, in_channel, parsed):
-        print("in_channel:", in_channel)
+    async def command_haiku(self, user, in_channel, parsed):
         return MessageCommand(text=self.haiku.generate_haiku(), channel=in_channel, user=user)

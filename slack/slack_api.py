@@ -15,7 +15,9 @@ import websockets
 Asynchronous Slack class
 '''
 
-Handler = namedtuple('Handler', ['name', 'func', 'doc', 'all_channels', 'channels', 'accept_dm'])
+Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels'])
+
+UnfilteredHandler = namedtuple('UnfilteredHandler', ['name', 'func', 'doc', 'channels'])
 
 
 class Slack:
@@ -31,6 +33,7 @@ class Slack:
         self.users = None
         self.message_id = 0
         self.handlers = {}
+        self.unfiltered_handlers = []
         self.reactions = defaultdict(lambda: defaultdict(set))
         self.parser = SlackParser(self.alert)
         self.get_emojis()
@@ -92,13 +95,20 @@ class Slack:
                 print('Got event', event)
                 if Slack.is_message(event):
                     user = event['user']
+                    user_name = self.u_id_to_name[user]
                     channel = event['channel']
                     is_dm = channel[0] == 'D'
+                    channel_name = None if is_dm else self.c_id_to_name[channel]
 
                     if not is_dm:
                         await self.react(event)
 
                     if not (is_dm or event['text'][0] == self.alert):
+                        for handler in self.unfiltered_handlers:
+                            if handler.channels is None or channel in handler.channels() or is_dm:
+                                command = await handler.func(user=user_name, in_channel=channel_name, message=event['text'])
+                                await self.exhaust_command(command)
+
                         await self.store_message(user=user, channel=channel, text=event['text'], ts=event['ts'])
                         continue
                     try:
@@ -108,11 +118,12 @@ class Slack:
                     except ParseException:
                         parsed = None
                     if not (parsed and name in self.handlers):
-                        command = MessageCommand(channel=None, user=self.u_id_to_name[user], text=self.help_message()) if is_dm else None
-                    elif parsed and is_dm or (handler.channels is None or self.c_id_to_name[channel] in handler.channels):
-                        command = await handler.func(user=self.u_id_to_name[user],
-                                                     in_channel=None if is_dm else self.c_id_to_name[channel],
+                        command = MessageCommand(channel=None, user=user_name, text=self.help_message()) if is_dm else None
+                    elif parsed and is_dm or (handler.channels is None or channel_name in handler.channels):
+                        command = await handler.func(user=user_name,
+                                                     in_channel=channel_name,
                                                      parsed=parsed[name])
+                        await self.exhaust_command(command)
 
                 elif Slack.is_group_join(event):
                     name = event['channel']['name']
@@ -120,16 +131,16 @@ class Slack:
                     self.c_name_to_id[name] = i
                     self.c_id_to_name[i] = name
 
-                while command:
-                    # Commands may return another command to be executed
-                    command = await command.execute(self)
-
         del self.socket
         del self.c_name_to_id
         del self.c_id_to_name
         del self.u_name_to_id
         del self.u_id_to_name
         del self.u_name_to_dm
+
+    async def exhaust_command(self, command):
+        while command:
+            command = await command.execute(self)
 
     async def react(self, event):
         loop = asyncio.get_event_loop()
@@ -217,14 +228,19 @@ class Slack:
                           files={'file': f}
                           )
 
-    def register_handler(self, expr, name, func, all_channels=False, channels=set(), accept_dm=False, doc=None, priority=0):
-        self.parser.add_command(expr, name, priority)
-        handler = Handler(name=name,
-                          func=func,
-                          all_channels=all_channels,
-                          channels=channels,
-                          accept_dm=accept_dm,
-                          doc=doc)
+    def register_handler(self, expr, name, func, channels=set(), doc=None, priority=0):
+        if expr is None:
+            handler = UnfilteredHandler(name=name,
+                                        func=func,
+                                        channels=channels,
+                                        doc=doc)
+            self.unfiltered_handlers.append(handler)
+        else:
+            self.parser.add_command(expr, name, priority)
+            handler = Handler(name=name,
+                              func=func,
+                              channels=channels,
+                              doc=doc)
         self.handlers[name] = handler
 
     def make_message(self, text, channel_id):
@@ -240,7 +256,7 @@ class Slack:
             if handler.doc:
                 res.append('{}:'.format(handler.name))
                 res.append('\t{}'.format(handler.doc))
-                res.append('\tAllowed channels: {}'.format('All' if handler.all_channels else handler.channels))
+                res.append('\tAllowed channels: {}'.format('All' if handler.channels is None else handler.channels))
 
         return '\n'.join(res)
 
