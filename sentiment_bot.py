@@ -2,7 +2,7 @@ from collections import defaultdict
 import config
 from functools import partial
 import numpy as np
-from pyparsing import CaselessLiteral, Optional, StringEnd
+from pyparsing import CaselessLiteral, nums, Optional, StringEnd, Word
 import random
 from sentiment import lstm
 from slack.bot import register, SlackBot
@@ -17,22 +17,24 @@ class SentimentBot(SlackBot):
     def __init__(self, session, slack):
         self.name = 'Sentiment Stats'
         self.expr = (CaselessLiteral('feels') +
-                     Optional(symbols.flag_with_arg('user', symbols.user_name)) +
+                     Optional(symbols.user_name.setResultsName('user')) +
                      StringEnd())
         self.doc = ('Show someone\'s feels:\n'
-                    '\tfeels [--user <user>]')
+                    '\tfeels [<user>]')
 
         self.extrema_name = 'Emotional Moments'
         self.extrema_expr = ((CaselessLiteral('grumpy') | CaselessLiteral('happy') | CaselessLiteral('meh')).setResultsName('emotion') +
-                             Optional(symbols.flag_with_arg('user', symbols.user_name)) +
+                             Optional(symbols.user_name.setResultsName('user')) +
                              StringEnd())
         self.extrema_doc = ('Show a particularly grumpy, happy or meh quote:\n'
-                            '\t(grumpy|happy|meh) [--user <user>]')
+                            '\t(grumpy|happy|meh) <user>')
 
         self.judge_name = 'Measure sentiment'
-        self.judge_expr = CaselessLiteral('lyte') + symbols.tail.setResultsName('text') + StringEnd()
+        self.judge_expr = (CaselessLiteral('lyte') +
+                           Optional(symbols.flag_with_arg('decimals', Word(nums))) +
+                           symbols.tail.setResultsName('text') + StringEnd())
         self.judge_doc = ('Evaluate the sentiment of a piece of text:\n'
-                          '\tlyte <message>')
+                          '\tlyte [--decimals <decimals>] <message>')
 
         self.sentiments = defaultdict(list)
         self.cooldowns = defaultdict(int)
@@ -81,7 +83,9 @@ class SentimentBot(SlackBot):
     async def command_judge(self, user, in_channel, parsed):
         sent = self.predict(parsed['text'])
         sent *= 100
-        return MessageCommand(text='Positive: {:.0f}% Negative: {:.0f}%'.format(sent[2], sent[0]), channel=in_channel, user=user)
+        decimals = parsed['decimals'] if 'decimals' in parsed else '0'
+        format_str = 'Positive: {:.' + decimals + 'f}% Negative: {:.' + decimals + 'f}%'
+        return MessageCommand(text=format_str.format(sent[2], sent[0]), channel=in_channel, user=user)
 
     @register(channels='monitor_channels')
     async def sentiment_monitor(self, user, in_channel, message):
