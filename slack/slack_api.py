@@ -125,7 +125,7 @@ class Slack:
                                 command = await handler.func(user=user_name,
                                                              in_channel=channel_name,
                                                              parsed=parsed[name])
-                                await self.exhaust_command(command)
+                            await self.exhaust_command(command)
 
                         elif Slack.is_group_join(event):
                             name = event['channel']['name']
