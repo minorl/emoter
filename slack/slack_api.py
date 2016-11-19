@@ -83,53 +83,57 @@ class Slack:
 
         url = body['url']
 
-        async with websockets.connect(url) as self.socket:
-            print('Running {} preloaded commands'.format(len(self.loaded_commands)))
+        while True:
+            try:
+                async with websockets.connect(url) as self.socket:
+                    print('Running {} preloaded commands'.format(len(self.loaded_commands)))
 
-            for c in self.loaded_commands:
-                await c.execute(self)
+                    for c in self.loaded_commands:
+                        await c.execute(self)
 
-            while True:
-                command = None
-                event = await self.get_event()
-                print('Got event', event)
-                if Slack.is_message(event):
-                    user = event['user']
-                    user_name = self.u_id_to_name[user]
-                    channel = event['channel']
-                    is_dm = channel[0] == 'D'
-                    channel_name = None if is_dm else self.c_id_to_name[channel]
+                    while True:
+                        command = None
+                        event = await self.get_event()
+                        print('Got event', event)
+                        if Slack.is_message(event):
+                            user = event['user']
+                            user_name = self.u_id_to_name[user]
+                            channel = event['channel']
+                            is_dm = channel[0] == 'D'
+                            channel_name = None if is_dm else self.c_id_to_name[channel]
 
-                    if not is_dm:
-                        await self.react(event)
+                            if not is_dm:
+                                await self.react(event)
 
-                    if not (is_dm or event['text'][0] == self.alert):
-                        for handler in self.unfiltered_handlers:
-                            if handler.channels is None or channel_name in handler.channels or is_dm:
-                                command = await handler.func(user=user_name, in_channel=channel_name, message=event['text'])
+                            if not (is_dm or event['text'][0] == self.alert):
+                                for handler in self.unfiltered_handlers:
+                                    if handler.channels is None or channel_name in handler.channels or is_dm:
+                                        command = await handler.func(user=user_name, in_channel=channel_name, message=event['text'])
+                                        await self.exhaust_command(command)
+
+                                await self.store_message(user=user, channel=channel, text=event['text'], ts=event['ts'])
+                                continue
+                            try:
+                                parsed = self.parser.parse(event['text'], dm=is_dm)
+                                name, = parsed.keys()
+                                handler = self.handlers[name]
+                            except ParseException:
+                                parsed = None
+                            if not (parsed and name in self.handlers):
+                                command = MessageCommand(channel=None, user=user_name, text=self.help_message()) if is_dm else None
+                            elif parsed and is_dm or (handler.channels is None or channel_name in handler.channels):
+                                command = await handler.func(user=user_name,
+                                                             in_channel=channel_name,
+                                                             parsed=parsed[name])
                                 await self.exhaust_command(command)
 
-                        await self.store_message(user=user, channel=channel, text=event['text'], ts=event['ts'])
-                        continue
-                    try:
-                        parsed = self.parser.parse(event['text'], dm=is_dm)
-                        name, = parsed.keys()
-                        handler = self.handlers[name]
-                    except ParseException:
-                        parsed = None
-                    if not (parsed and name in self.handlers):
-                        command = MessageCommand(channel=None, user=user_name, text=self.help_message()) if is_dm else None
-                    elif parsed and is_dm or (handler.channels is None or channel_name in handler.channels):
-                        command = await handler.func(user=user_name,
-                                                     in_channel=channel_name,
-                                                     parsed=parsed[name])
-                        await self.exhaust_command(command)
-
-                elif Slack.is_group_join(event):
-                    name = event['channel']['name']
-                    i = event['channel']['id']
-                    self.c_name_to_id[name] = i
-                    self.c_id_to_name[i] = name
+                        elif Slack.is_group_join(event):
+                            name = event['channel']['name']
+                            i = event['channel']['id']
+                            self.c_name_to_id[name] = i
+                            self.c_id_to_name[i] = name
+            except websockets.exceptions.ConnectionClosed:
+                print('Websocket closed')
 
         del self.socket
         del self.c_name_to_id

@@ -18,8 +18,8 @@ class MessageCommand(Command):
 
     async def execute(self, slack):
         channel = slack.c_name_to_id[self.channel] if self.channel else slack.u_name_to_dm[self.user]
-        if len(self.text) < 4000:
-            await slack.send(self.text, channel)
+        for i in range(len(self.text - 1) // 4000 + 1):
+            await slack.send(self.text[4000 * i: 4000 * (i + 1)], channel)
 
 
 class EditReactionCommand(Command):
