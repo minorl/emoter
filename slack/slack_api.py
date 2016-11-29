@@ -60,30 +60,30 @@ class Slack:
         self.loaded_commands.extend(commands)
 
     async def run(self):
-        response = requests.get(Slack.base_url + 'rtm.start', params={'token': self.token})
-        body = response.json()
-        self.c_name_to_id = {c['name']: c['id'] for c in chain(body['channels'], body['groups'])}
-        self.c_id_to_name = {v: k for k, v in self.c_name_to_id.items()}
-        self.u_id_to_name = {u['id']: u['name'] for u in body['users']}
-        self.u_name_to_id = {u['name']: u['id'] for u in body['users']}
-
-        print('Users: ')
-        for u in self.u_name_to_id:
-            print('\t' + u)
-
-        print()
-        print('Channels: ')
-        for c in self.c_name_to_id:
-            print('\t' + c)
-
-        self.get_dm_rooms()
-        if self.do_load_history:
-            await self.load_history()
-            self.do_load_history = False
-
-        url = body['url']
-
         while True:
+            response = requests.get(Slack.base_url + 'rtm.start', params={'token': self.token})
+            body = response.json()
+            self.c_name_to_id = {c['name']: c['id'] for c in chain(body['channels'], body['groups'])}
+            self.c_id_to_name = {v: k for k, v in self.c_name_to_id.items()}
+            self.u_id_to_name = {u['id']: u['name'] for u in body['users']}
+            self.u_name_to_id = {u['name']: u['id'] for u in body['users']}
+
+            print('Users: ')
+            for u in self.u_name_to_id:
+                print('\t' + u)
+
+            print()
+            print('Channels: ')
+            for c in self.c_name_to_id:
+                print('\t' + c)
+
+            self.get_dm_rooms()
+            if self.do_load_history:
+                await self.load_history()
+                self.do_load_history = False
+
+            url = body['url']
+
             try:
                 async with websockets.connect(url) as self.socket:
                     print('Running {} preloaded commands'.format(len(self.loaded_commands)))
