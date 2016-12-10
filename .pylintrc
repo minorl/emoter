@@ -1,0 +1,7 @@
+[MESSAGES CONTROL]
+disable=bad-continuation,too-few-public-methods
+
+[TYPECHECK]
+ignored-classes=HistoryDoc,ReactDoc
+
+good-names=f
