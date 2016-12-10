@@ -1,6 +1,6 @@
 # Emote Bot
 
-Simple bot for Slack which can write out text using emojis. Can also accept user commands to react or reply when a phrase is used.
+Simple bot for Slack which does a ton of random stuff. Highlights include performing sentiment analysis on channels and generating random haikus.
 
 ## Installation
 
