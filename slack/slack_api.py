@@ -38,6 +38,11 @@ def is_group_join(event):
     return 'type' in event and event['type'] == 'group_joined'
 
 
+def is_team_join(event):
+    """Check whether an event is a new user joining the team"""
+    return 'type' in event and event['type'] == 'team_join'
+
+
 class SlackIds:
     """Helper class for holding user, channel and room IDs."""
     def __init__(self, token, channels, users, groups):
@@ -76,6 +81,11 @@ class SlackIds:
         """Add a channel to ID registry"""
         self._c_name_to_id[cname] = cid
         self._c_id_to_name[cid] = cname
+
+    def add_user(self, uname, uid):
+        """Add a channel to ID registry"""
+        self._u_name_to_id[uname] = uid
+        self._u_id_to_name[uid] = uname
 
     def uid(self, uname):
         """Translate username to user ID"""
@@ -152,6 +162,10 @@ class Slack:
                             cname = event['channel']['name']
                             cid = event['channel']['id']
                             self.ids.add_channel(cname=cname, cid=cid)
+                        elif is_team_join(event):
+                            uname = event['user']['name']
+                            uid = event['user']['id']
+                            self.ids.add_user(uname=uname, uid=uid)
             except websockets.exceptions.ConnectionClosed:
                 print('Websocket closed')
 
