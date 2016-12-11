@@ -5,6 +5,7 @@ import binder_bot
 import config
 import emote_bot
 import haiku_bot
+import jeff_bot
 from mongoengine import connect
 import quote_bot
 import react_bot
@@ -40,6 +41,7 @@ def main():
         slack=slackapp)
     quote_bot.QuoteBot(slack=slackapp)
     wordcloud_bot.WordcloudBot(slack=slackapp)
+    jeff_bot.JeffBot(slack=slackapp)
 
     twitch_alias = 'twitch_db'
     connect(config.TWITCH_DB_NAME, alias=twitch_alias)
