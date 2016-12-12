@@ -5,7 +5,7 @@ from slack.parsing import symbols
 
 
 class JeffBot(SlackBot):
-    def __init__(self, jeff_channels, slack=None):
+    def __init__(self, jeff_channels, jeff_bot_target, slack=None):
         self.channels = jeff_channels
         self.pig_name = "Pig Latin"
         self.pig_expr = CaselessLiteral("pig") + symbols.tail.setResultsName("message") + StringEnd()
