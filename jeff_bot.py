@@ -15,12 +15,12 @@ class JeffBot(SlackBot):
         self.hankey_expr = CaselessLiteral("hankey") + symbols.user_name.setResultsName("target") + StringEnd()
         self.hankey_doc = "Target user for hankeying"
         self.target = jeff_bot_target
-        self.random = emoji_random
+        self.ramoji = jeff_bot_emojis
 
     @register(channels="channels")
     async def command_random(self, user, in_channel, message):
         if user == "skelni" and randint(0,19) == 1:
-            return ReactCommand(choice(self.random))
+            return ReactCommand(choice(self.ramoji))
         else:
             return None
 
