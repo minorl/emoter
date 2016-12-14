@@ -1,11 +1,12 @@
 from pyparsing import CaselessLiteral, StringEnd
+from random import randint, choice
 from slack.bot import SlackBot, register
 from slack.command import MessageCommand, ReactCommand
 from slack.parsing import symbols
 
 
 class JeffBot(SlackBot):
-    def __init__(self, jeff_channels, jeff_bot_target, slack=None):
+    def __init__(self, jeff_bot_emojis, jeff_channels, jeff_bot_target, slack=None):
         self.channels = jeff_channels
         self.pig_name = "Pig Latin"
         self.pig_expr = CaselessLiteral("pig") + symbols.tail.setResultsName("message") + StringEnd()
@@ -14,8 +15,16 @@ class JeffBot(SlackBot):
         self.hankey_expr = CaselessLiteral("hankey") + symbols.user_name.setResultsName("target") + StringEnd()
         self.hankey_doc = "Target user for hankeying"
         self.target = jeff_bot_target
+        self.ramoji = jeff_bot_emojis
 
-    @register(channels='channels')
+    @register(channels="channels")
+    async def command_random(self, user, in_channel, message):
+        if user == "skelni" and randint(0,19) == 1:
+            return ReactCommand(choice(self.ramoji))
+        else:
+            return None
+
+    @register(channels="channels")
     async def command_jeff(self, user, in_channel, message):
         if user == self.target:
             return ReactCommand("hankey")
