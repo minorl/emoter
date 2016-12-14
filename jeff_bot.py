@@ -24,7 +24,7 @@ class JeffBot(SlackBot):
 
     @register(name="hankey_name", expr="hankey_expr", doc="hankey_doc")
     async def command_hankey(self, user, in_channel, parsed):
-        self.target = parsed["target"]
+        self.target = parsed["target"] if user != "spiffyman" and user != "davis.yoshida" else user
         return None
 
     @register(name="pig_name", expr="pig_expr", doc="pig_doc")
