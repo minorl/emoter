@@ -4,6 +4,7 @@ import asyncio
 import binder_bot
 import config
 import emote_bot
+import frog_bot
 import haiku_bot
 import jeff_bot
 from mongoengine import connect
@@ -34,6 +35,7 @@ def main():
     slackapp = Slack(slack_config)
     emote_bot.EmoteBot(channels=config.EMOJI_CHANNELS, slack=slackapp)
     binder_bot.BinderBot(admins=config.ADMINS, max_len=config.MAX_BIND_LEN, slack=slackapp)
+    frog_bot.FrogBot(config.FROG_CHANNELS, slack=slackapp)
     react_bot.ReactBot(
         admins=config.ADMINS,
         out_channels=config.REACTION_CHANNELS,
