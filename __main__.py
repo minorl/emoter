@@ -7,6 +7,7 @@ import emote_bot
 import frog_bot
 import haiku_bot
 import jeff_bot
+import markov_bot
 from mongoengine import connect
 import quote_bot
 import react_bot
@@ -44,6 +45,8 @@ def main():
     quote_bot.QuoteBot(slack=slackapp)
     wordcloud_bot.WordcloudBot(slack=slackapp)
     jeff_bot.JeffBot(jeff_bot_probability=config.JEFF_BOT_PROBABILITY, jeff_bot_emojis=config.JEFF_BOT_EMOJIS, jeff_bot_target=config.JEFF_BOT_TARGET, jeff_channels=config.JEFF_CHANNELS, slack=slackapp)
+
+    markov_bot.MarkovBot(slack=slackapp)
 
     twitch_alias = 'twitch_db'
     connect(config.TWITCH_DB_NAME, alias=twitch_alias)
