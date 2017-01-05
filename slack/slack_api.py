@@ -144,14 +144,15 @@ class Slack:
 
     async def run(self):
         """Main loop"""
-        websocket_url = await self.connect()
         while True:
+            websocket_url = await self.connect()
             try:
                 async with websockets.connect(websocket_url) as self.socket:
                     print('Running {} preloaded commands'.format(len(self._loaded_commands)))
 
                     for command in self._loaded_commands:
                         await self._exhaust_command(command, None)
+                    self._loaded_commands = []
 
                     while True:
                         command = None
