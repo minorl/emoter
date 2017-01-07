@@ -27,4 +27,9 @@ class MoneyBot(SlackBot):
 
     @register(name='gain_name', expr='gain_expr', doc='gain_doc', channels='channels')
     async def command_gain(self, user, in_channel, parsed):
-        await economy.give(user, 1)
+        if in_channel:
+            await economy.give(user, 1)
+        else:
+            return MessageCommand(
+                text='Don\'t be ashamed to work in public',
+                user=user)
