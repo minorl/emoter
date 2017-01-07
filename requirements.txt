@@ -6,3 +6,4 @@ numpy
 wordcloud
 Pillow
 unidecode
+nltk
