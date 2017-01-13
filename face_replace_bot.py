@@ -41,6 +41,7 @@ class FaceReplaceBot(SlackBot):
             
             # Reset the file pointer, so we can read the file again
             image.seek(0)
+
             if faces:
                 replace_faces(image, faces, filename)
             else:
