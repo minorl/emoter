@@ -56,7 +56,6 @@ def main():
     markov_bot.MarkovBot(slack=slackapp)
     money_bot.MoneyBot(config.MONEY_CHANNELS, config.MONEY_NAME, slack=slackapp)
 
-
     twitch_alias = 'twitch_db'
     connect(config.TWITCH_DB_NAME, alias=twitch_alias)
 
