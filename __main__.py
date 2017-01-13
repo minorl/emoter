@@ -16,6 +16,7 @@ import react_bot
 import sentiment_bot
 import twitch_bot
 import wordcloud_bot
+import face_replace_bot
 
 from slack.slack_api import Slack, SlackConfig
 import tensorflow as tf
@@ -61,6 +62,7 @@ def main():
     twitch_bot.TwitchBot(twitch_alias, min_length=config.MIN_MARKOV_LENGTH, slack=slackapp)
 
     haiku_bot.HaikuBot(slack=slackapp)
+    face_replace_bot.FaceReplaceBot(slack=slackapp)
 
     with tf.Graph().as_default(), tf.Session() as session:
         sentiment_bot.SentimentBot(session=session, slack=slackapp)

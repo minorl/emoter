@@ -11,7 +11,7 @@ from slack.command import HistoryCommand, MessageCommand, UploadCommand
 from slack.parsing import symbols
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 import tempfile
-
+from util import get_image
 
 class WordcloudBot(SlackBot):
     def __init__(self, slack):
@@ -49,7 +49,7 @@ class WordcloudBot(SlackBot):
         if not hist_list:
             return
         try:
-            image_file = await WordcloudBot.get_image(image_url) if image_url else None
+            image_file = await get_image(image_url) if image_url else None
         except ValueError:
             return MessageCommand(channel=None, user=user, text='Image {} not found.'.format(image_url))
 
@@ -88,13 +88,3 @@ class WordcloudBot(SlackBot):
             os.remove(image_file)
         return name
 
-    @staticmethod
-    async def get_image(url):
-        r = requests.get(url, stream=True)
-        if r.status_code == 200:
-            out_name = next(tempfile._get_candidate_names()) + '.png'
-            with open(out_name, 'wb') as f:
-                r.raw.decode_content = True
-                shutil.copyfileobj(r.raw, f)
-            return out_name
-        raise ValueError
