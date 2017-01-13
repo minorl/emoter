@@ -89,7 +89,7 @@ def replace_faces(image, faces, output_filename):
     #Get nick, resize nick based on fdbounding box, paste nick (centered?)
     #bounding box appears to always be a square, parallel to x and y axis
 
-    with open('faces/nick.json', 'rb') as f:
+    with open('faces/nick.json') as f:
         nickFaceData = json.load(f)
     nickVerts = nickFaceData[0]['fdBoundingPoly']['vertices']
     #top left corner
