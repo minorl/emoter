@@ -3,7 +3,7 @@ from itertools import chain
 import re
 
 from mongoengine import Document, StringField
-from pyparsing import CaselessLiteral, Literal, nums, Optional, printables, StringEnd, White, Word
+from pyparsing import CaselessLiteral, Literal, nums, Optional, printables, StringEnd, Word
 from slack.bot import SlackBot, register
 from slack.command import MessageCommand, ReactCommand
 import slack.parsing.symbols as sym
@@ -23,7 +23,7 @@ class ReactBot(SlackBot):
         self.max_per_user = max_per_user
 
         self.create_name = 'Add a reaction'
-        self.create_expr = CaselessLiteral('react') + sym.channel_name + sym.emoji + White() + sym.tail
+        self.create_expr = CaselessLiteral('react') + sym.channel_name + sym.emoji + sym.tail('target_pattern')
         self.create_doc = ('Register a reaction for when a pattern occurs in a channel:\n'
                            '\treact <channel> <emoji> <pattern>')
 
@@ -48,7 +48,7 @@ class ReactBot(SlackBot):
     @register(name='create_name', expr='create_expr', doc='create_doc')
     async def command_create(self, user, in_channel, parsed):
         target_channel = parsed['channel']
-        reg_text = parsed['tail']
+        reg_text = parsed['target_pattern']
         emoji = parsed['emoji'][1:-1]
 
         if target_channel not in self.out_channels:
