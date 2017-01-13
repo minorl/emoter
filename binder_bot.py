@@ -24,7 +24,7 @@ class BinderBot(SlackBot):
         key_expr = Word(alphanums + '{}').setResultsName('key')
 
         self.bind_name = 'Make Bind'
-        self.bind_expr = CaselessLiteral('bind') + key_expr + symbols.tail.setResultsName('output') + StringEnd()
+        self.bind_expr = CaselessLiteral('bind') + key_expr + symbols.tail('output') + StringEnd()
         self.bind_doc = 'Bind a word to an output: bind <word> <output>.'
 
         self.unbind_name = 'Remove Bind'
@@ -53,7 +53,7 @@ class BinderBot(SlackBot):
 
     @staticmethod
     def _accumulator(acc, expr):
-        return acc | (expr + Optional(symbols.tail.setResultsName('formats')))
+        return acc | (expr + Optional(symbols.tail('formats')))
 
     def update_bind_expr(self):
         self.print_bind_forward << reduce(self._accumulator, self.current_bind_exprs.values(), NoMatch()) + StringEnd()
