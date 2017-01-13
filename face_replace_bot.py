@@ -10,6 +10,7 @@ import base64
 from PIL import Image
 from PIL import ImageDraw
 import os
+import asyncio
 
 class FaceReplaceBot(SlackBot):
     def __init__(self, slack=None):
@@ -40,6 +41,7 @@ class FaceReplaceBot(SlackBot):
             # Reset the file pointer, so we can read the file again
             image.seek(0)
             replace_faces(image, faces, filename)
+
         os.remove(image_file)
         return UploadCommand(channel=in_channel, user=user, file_name=filename, delete=True)
 
@@ -71,7 +73,8 @@ async def detect_face(face_file, max_results=4):
     request = service.images().annotate(body={
         'requests': batch_request,
         })
-    response = request.execute()
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(None, request.execute)
 
     return response['responses'][0]['faceAnnotations']
 
