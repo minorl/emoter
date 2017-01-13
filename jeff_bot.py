@@ -9,7 +9,7 @@ class JeffBot(SlackBot):
     def __init__(self, jeff_bot_emojis, jeff_channels, jeff_bot_target, slack=None):
         self.channels = jeff_channels
         self.pig_name = "Pig Latin"
-        self.pig_expr = CaselessLiteral("pig") + symbols.tail.setResultsName("message") + StringEnd()
+        self.pig_expr = CaselessLiteral("pig") + symbols.tail("message") + StringEnd()
         self.pig_doc = "Translate a message to pig latin"
         self.hankey_name = "Hankey"
         self.hankey_expr = CaselessLiteral("hankey") + symbols.user_name.setResultsName("target") + StringEnd()
