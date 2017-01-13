@@ -134,5 +134,3 @@ def get_bbox_height_width(vertices):
             width = abs(x0-xi)
 
     return (width, height)
-
-
