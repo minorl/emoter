@@ -26,11 +26,12 @@ SlackConfig = namedtuple('SlackConfig', ['token', 'alert', 'name', 'load_history
 
 def is_message(event, no_channel=False):
     """Check whether an event is a regular message."""
-    return 'type' in event and event['type'] == 'message'\
-           and (no_channel or ('channel' in event and event['channel']))\
-           and 'text' in event\
-           and not ('reply_to' in event)\
+    return ('type' in event and event['type'] == 'message'
+           and (no_channel or ('channel' in event and event['channel']))
+           and 'text' in event
+           and not ('reply_to' in event)
            and 'subtype' not in event
+           and event['text']) # Zero length messages are possible via /giphy command on slack
 
 
 def is_group_join(event):
@@ -143,14 +144,15 @@ class Slack:
 
     async def run(self):
         """Main loop"""
-        websocket_url = await self.connect()
         while True:
+            websocket_url = await self.connect()
             try:
                 async with websockets.connect(websocket_url) as self.socket:
                     print('Running {} preloaded commands'.format(len(self._loaded_commands)))
 
                     for command in self._loaded_commands:
                         await self._exhaust_command(command, None)
+                    self._loaded_commands = []
 
                     while True:
                         command = None

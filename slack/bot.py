@@ -73,5 +73,5 @@ class SlackBotMeta(type):
 
 class SlackBot(metaclass=SlackBotMeta):
     """Class to inherit from when making Slack bots"""
-    def __init__(self, *args, channels, **kwargs):
+    def __init__(self, *args, **kwargs):
         pass

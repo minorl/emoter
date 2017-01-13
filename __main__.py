@@ -3,16 +3,20 @@ import argparse
 import asyncio
 import binder_bot
 import config
+import db
 import emote_bot
 import frog_bot
 import haiku_bot
 import jeff_bot
+import markov_bot
+import money_bot
 from mongoengine import connect
 import quote_bot
 import react_bot
 import sentiment_bot
 import twitch_bot
 import wordcloud_bot
+import face_replace_bot
 
 from slack.slack_api import Slack, SlackConfig
 import tensorflow as tf
@@ -24,7 +28,6 @@ def main():
     parser = argparse.ArgumentParser(description='A simple slack bot')
     parser.add_argument('--load_history', action='store_true')
     args = parser.parse_args()
-    connect(config.DB_NAME)
 
     slack_config = SlackConfig(
         token=config.TOKEN,
@@ -43,7 +46,15 @@ def main():
         slack=slackapp)
     quote_bot.QuoteBot(slack=slackapp)
     wordcloud_bot.WordcloudBot(slack=slackapp)
-    jeff_bot.JeffBot(jeff_bot_emojis=config.JEFF_BOT_EMOJIS, jeff_bot_target=config.JEFF_BOT_TARGET, jeff_channels=config.JEFF_CHANNELS, slack=slackapp)
+    jeff_bot.JeffBot(
+        jeff_bot_probability=config.JEFF_BOT_PROBABILITY,
+        jeff_bot_emojis=config.JEFF_BOT_EMOJIS,
+        jeff_bot_target=config.JEFF_BOT_TARGET,
+        jeff_channels=config.JEFF_CHANNELS,
+        slack=slackapp)
+
+    markov_bot.MarkovBot(slack=slackapp)
+    money_bot.MoneyBot(config.MONEY_CHANNELS, config.MONEY_NAME, slack=slackapp)
 
     twitch_alias = 'twitch_db'
     connect(config.TWITCH_DB_NAME, alias=twitch_alias)
@@ -51,6 +62,7 @@ def main():
     twitch_bot.TwitchBot(twitch_alias, min_length=config.MIN_MARKOV_LENGTH, slack=slackapp)
 
     haiku_bot.HaikuBot(slack=slackapp)
+    face_replace_bot.FaceReplaceBot(slack=slackapp)
 
     with tf.Graph().as_default(), tf.Session() as session:
         sentiment_bot.SentimentBot(session=session, slack=slackapp)
