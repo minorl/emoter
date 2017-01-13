@@ -1,9 +1,10 @@
-from pyparsing import alphanums, CaselessLiteral, CharsNotIn, OneOrMore, printables, Regex, Word
+from pyparsing import alphanums, CaselessLiteral, CharsNotIn, OneOrMore, printables, Regex, Suppress, White, Word
 
 emoji = Regex(':[\S]+:').setResultsName('emoji')
 message = OneOrMore(Word(alphanums + "#")).setResultsName('message')
 
-tail = CharsNotIn('').setResultsName('tail')
+def tail(name):
+    return Suppress(White(exact=1)) + CharsNotIn('').setResultsName(name)
 channel_name = Word(alphanums + '-').setResultsName('channel')
 
 user_name = Word(alphanums + '-_.')
