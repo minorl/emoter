@@ -106,6 +106,7 @@ class StockBot(SlackBot):
         buy_price = self.compute_price(dividend, stock)
         sell_price = self.compute_price(dividend, stock, sell=True)
         result.append('*{}* ({} deaths):'.format(stock.name, self.get_deaths(stock.target_user)))
+        result.append('\tName: {}'.format(stock.target_user))
         result.append('\tCurrent dividend: {:.01f} {} per {} hours'.format(dividend, self.currency_name, self.payout_hours))
         result.append('\tBuy for: {} {}'.format(int(buy_price), self.currency_name))
         result.append('\tSell for: {} {}'.format(int(sell_price), self.currency_name))
