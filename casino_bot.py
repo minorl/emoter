@@ -47,10 +47,14 @@ class CasinoBot(SlackBot):
                 msg = 'Try again.'
                 self.update_jackpot(bet * self.slots_contribution)
             await economy.give(user, won - bet)
-            return MessageCommand(text='{0}\n{1} Jackpot is {2}.'.format("".join(reels), msg, int(self.slots_jackpot)), channel=in_channel, user=user)
+            return MessageCommand(text='{0}\n{1} Jackpot is {2}.'.format(''.join(reels), msg, int(self.slots_jackpot)), channel=in_channel, user=user)
         else:
             return MessageCommand(text='Too poor! Sad.', channel=in_channel, user=user)
 
     def update_jackpot(self, amount):
         self.slots_jackpot += amount
+<<<<<<< HEAD
         self.slots_jackpot_file.write_text(str(self.slots_jackpot))
+=======
+        self.slots_jackpot_file.write_text(str(self.slots_jackpot))
+>>>>>>> 378edc99ae4ca136535a5e44e54ce7efbb186dae
