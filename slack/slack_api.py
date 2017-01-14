@@ -31,7 +31,7 @@ def is_message(event, no_channel=False):
            and 'text' in event
            and not ('reply_to' in event)
            and 'subtype' not in event
-           and event['text']) # Zero length messages are possible via /giphy command on slack
+           and event['text'])  # Zero length messages are possible via /giphy command on slack
 
 
 def is_group_join(event):
@@ -200,6 +200,9 @@ class Slack:
                 command = None
             await self._exhaust_command(command, event)
         else:
+            parsed = None
+
+        if not is_dm and parsed is None:
             for handler in self._handlers.unfiltered:
                 if (handler.channels is None
                         or channel_name in handler.channels

@@ -13,6 +13,7 @@ def _get_or_create_user(user):
         obj.save()
         return obj
 
+
 class _Economy:
     def __init__(self):
         self._lock = Lock()
@@ -30,5 +31,6 @@ class _Economy:
     async def user_currency(self, user):
         with await self._lock:
             return self._ledger[user]
+
 
 economy = _Economy()
