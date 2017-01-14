@@ -32,7 +32,7 @@ class CasinoBot(SlackBot):
         msg = ''
         if bank >= bet:
             reels = list(random.choice(self.slots_sym, 3))
-            jacks = reels.count(jackpot)
+            jacks = reels.count(self.slots_jackpot_symbol)
             if jacks:
                 won = self.slots_jackpot if jacks == 3 else bet * 4 if jacks == 2 else 0
             else:
