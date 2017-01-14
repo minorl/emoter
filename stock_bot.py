@@ -28,8 +28,6 @@ class StockBot(SlackBot):
             min_payoff_period_days=4,
             max_payoff_period_days=21,
             slack=None):
-        StockDoc.drop_collection()
-        StockHoldingsDoc.drop_collection()
         current = set(stock.target_user for stock in StockDoc.objects())
         now = datetime.now()
         last_dividend_time = now.replace(minute=0, second=0, microsecond=0, hour=now.hour // payout_hours * payout_hours).timestamp()
