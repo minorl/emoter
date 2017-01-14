@@ -17,6 +17,7 @@ import sentiment_bot
 import twitch_bot
 import wordcloud_bot
 import face_replace_bot
+import casino_bot
 
 from slack.slack_api import Slack, SlackConfig
 import tensorflow as tf
@@ -63,7 +64,8 @@ def main():
 
     haiku_bot.HaikuBot(slack=slackapp)
     face_replace_bot.FaceReplaceBot(slack=slackapp)
-
+    casino_bot.CasinoBot(config.MONEY_NAME, slack=slackapp)
+    
     with tf.Graph().as_default(), tf.Session() as session:
         sentiment_bot.SentimentBot(session=session, slack=slackapp)
         loop = asyncio.get_event_loop()

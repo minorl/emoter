@@ -1,4 +1,4 @@
-from pyparsing import alphanums, CaselessLiteral, CharsNotIn, OneOrMore, printables, Regex, Suppress, White, Word
+from pyparsing import alphanums, nums, CaselessLiteral, CharsNotIn, OneOrMore, printables, Regex, Suppress, White, Word
 
 emoji = Regex(':[\S]+:').setResultsName('emoji')
 message = OneOrMore(Word(alphanums + "#")).setResultsName('message')
@@ -11,6 +11,7 @@ user_name = Word(alphanums + '-_.')
 
 link = Word(printables)
 
+int_num = Word(nums)
 
 def flag(name):
     return CaselessLiteral('--' + name).setResultsName(name)
