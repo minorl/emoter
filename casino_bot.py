@@ -41,8 +41,8 @@ class CasinoBot(SlackBot):
             if won:
                 if won == self.slots_jackpot:
                     self.update_jackpot(-won)
-                    msg = "JACKPOT!!!! "
-                msg += '{0} won {1} {2}!'.format(user, won, self.currency_name)
+                    msg = 'JACKPOT!!!! '
+                msg += '{0} won {1} {2}!'.format(user, int(won), self.currency_name)
             else:
                 msg = 'Try again.'
                 self.update_jackpot(bet * self.slots_contribution)
