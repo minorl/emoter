@@ -20,6 +20,7 @@ class AccountDoc(Document):
 
 class StockDoc(Document):
     """Document representing a stock and how much of it is held by the central store"""
+    name = StringField()
     target_user = StringField()
     dividend_history = ListField(FloatField())
     last_dividend_time = LongField()
@@ -29,6 +30,10 @@ class StockDoc(Document):
         'indexes': [
             {
                 'fields': ['target_user'],
+                'unique': True
+            },
+            {
+                'fields': ['name'],
                 'unique': True
             }
         ]

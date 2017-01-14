@@ -59,8 +59,6 @@ class LeagueMonitor:
                     game_obj.update(push__player_games=player_game)
                     summoner.update(push__game_refs=game_obj)
 
-            for name in monitor_users:
-                print('{} deaths: {}'.format(name, sum(game.deaths for game in get_recent_games(name))))
             await asyncio.sleep(600)
 
 
