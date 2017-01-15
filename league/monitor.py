@@ -1,5 +1,7 @@
 import asyncio
 from collections import deque
+from operator import itemgetter
+
 from league.league_db import GameDoc, PlayerGameDoc, SummonerDoc
 from mongoengine import DoesNotExist
 
@@ -35,6 +37,7 @@ class LeagueMonitor:
                 print('Getting games for {}'.format(sname))
                 summoner = SummonerDoc.objects.get(name=sname)
                 recent_games = (await self.api.get_recent_games(monitor_users[sname]))['games']
+                recent_games.sort(key=itemgetter('createDate'))
                 for game in recent_games:
                     game_id = game['gameId']
                     if game['gameType'] != 'MATCHED_GAME' or game_id in game_deque:
@@ -73,4 +76,4 @@ def get_or_create_game(game_id, create_date):
 
 def get_recent_games(summoner_name):
     summoner_name = summoner_name.lower()
-    return [next(pg for pg in game.player_games if pg.name == summoner_name) for game in SummonerDoc.objects.get(name=summoner_name).game_refs]
+    return [next(pg for pg in game.player_games if pg.name == summoner_name) for game in SummonerDoc.objects.get(name=summoner_name).game_refs[-10:]]

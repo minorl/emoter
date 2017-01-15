@@ -185,7 +185,7 @@ class StockBot(SlackBot):
             else:
                 dividend = self.compute_dividend(stock)
                 money = self.compute_price(dividend, stock, amount=amount, sell=True)
-                economy.give(user, money)
+                await economy.give(user, money)
 
                 stock.update(quantity=stock.quantity + amount)
                 stock_amounts[stock_name] -= amount
@@ -212,7 +212,7 @@ class StockBot(SlackBot):
     def get_deaths(self, target_user):
         games = get_recent_games(self.name_to_sname[target_user])
         total_deaths = sum(g.deaths for g in games)
-        if len(games) < 10:
+        if len(games) < 10 and games:
             total_deaths = int(total_deaths / len(games) * 10)
         return total_deaths
 
