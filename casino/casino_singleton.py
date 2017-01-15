@@ -2,7 +2,7 @@ from asyncio import Lock
 from collections import defaultdict
 
 from mongoengine import DoesNotExist
-from .casino_db import ScoreboardDoc, GameDoc, BigWinsHistoryDoc
+from .casino_db import ScoreboardDoc, CasinoGameDoc, BigWinsHistoryDoc
 
 
 def _get_or_create_scoreboard_user(user, game):
@@ -15,9 +15,9 @@ def _get_or_create_scoreboard_user(user, game):
 
 def _get_or_create_game(game):
     try:
-        return GameDoc.objects.get(game=game)
+        return CasinoGameDoc.objects.get(game=game)
     except DoesNotExist:
-        obj = GameDoc(game=game, jackpot=0.0)
+        obj = CasinoGameDoc(game=game, jackpot=0.0)
         obj.save()
         return obj
 
@@ -30,7 +30,7 @@ class _Casino:
         self._jackpot = defaultdict(float)
         for score in ScoreboardDoc.objects():
             self._games[score.game][score.user] = score.won + score.lost
-        for game in GameDoc.objects():
+        for game in CasinoGameDoc.objects():
             self._jackpot[game.game] = game.jackpot
 
     async def record(self, user, game, amount):
