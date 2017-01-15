@@ -64,6 +64,7 @@ def main():
     s_bot = stock_bot.StockBot(
         stock_users=config.STOCK_USERS,
         currency_name=config.MONEY_NAME,
+        timezone=config.TIMEZONE,
         index_name=config.INDEX_NAME,
         slack=slackapp)
     loop = asyncio.get_event_loop()

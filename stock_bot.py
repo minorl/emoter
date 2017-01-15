@@ -21,6 +21,7 @@ class StockBot(SlackBot):
             stock_users,
             currency_name,
             index_name,
+            timezone,
             min_count=100,
             max_count=500,
             points_per_death=15,
@@ -45,6 +46,8 @@ class StockBot(SlackBot):
                     ).save()
 
         self.payout_hours = payout_hours
+        self.next_dividend_time = last_dividend_time + payout_hours * 3600
+        self.timezone = timezone
         self.payoff_scale_factor = max_payoff_period_days - min_payoff_period_days
         self.payoff_offset = min_payoff_period_days
         self.points_per_death = points_per_death
@@ -89,7 +92,9 @@ class StockBot(SlackBot):
         return MessageCommand(
             user=user,
             channel=in_channel,
-            text='Your stocks:\n' + '\n'.join('*{}*: {}'.format(stock, amount) for stock, amount in sorted(user_obj.stocks.items())))
+            text='Your stocks:\n' + '\n'.join('`{}{}`: {}'
+                    .format(stock, ' ' * (4 - len(stock)), amount)
+                for stock, amount in sorted(user_obj.stocks.items())))
 
     @register(name='info_name', expr='info_expr', doc='info_doc')
     async def stock_info(self, user, in_channel, parsed):
@@ -119,7 +124,9 @@ class StockBot(SlackBot):
         stock_dividends.sort(reverse=True, key=itemgetter(0))
         for price, stock in stock_dividends:
             result.append('*{}* {}'.format(stock.name, price))
-        return MessageCommand(user=user, channel=in_channel, text=' | '.join(result))
+        out_message = (' | '.join(result) + '\n' + datetime.fromtimestamp(self.next_dividend_time)
+            .strftime('Next dividend %c {}').format(self.timezone))
+        return MessageCommand(user=user, channel=in_channel, text=out_message)
 
     @register(name='index_name', expr='index_expr', doc='available_doc')
     async def market_index(self, user, in_channel, parsed):
@@ -166,6 +173,8 @@ class StockBot(SlackBot):
         user_stocks.update(stocks=stock_amounts)
 
         await economy.give(user, -cost)
+        return MessageCommand(channel=in_channel, user=user, text='{} bought {} share{} of {} for {} {}.'.format(
+            user, amount, 's' if amount > 1 else '', stock_name, cost, self.currency_name))
 
     @register(name='sell_name', expr='sell_expr', doc='sell_doc')
     async def sell_stocks(self, user, in_channel, parsed):
@@ -219,15 +228,10 @@ class StockBot(SlackBot):
     async def dividend_loop(self):
         payout_seconds = self.payout_hours * 3600
         while True:
-            now = time.time()
-            next_time = now + 10  # Minimum time for edge case where there are no stocks
+            await asyncio.sleep(int(self.next_dividend_time - time.time()))
+            self.next_dividend_time += payout_seconds
             for stock in StockDoc.objects():
-                if (now - stock.last_dividend_time) > payout_seconds:
-                    await self.pay_dividends(stock)
-                    next_time = min(next_time, now + payout_seconds)
-                else:
-                    next_time = min(next_time, stock.last_dividend_time + payout_seconds)
-            await asyncio.sleep(int(next_time - now))
+                await self.pay_dividends(stock)
 
     async def pay_dividends(self, stock):
         name = stock.name
