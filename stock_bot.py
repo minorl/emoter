@@ -144,7 +144,7 @@ class StockBot(SlackBot):
         if not err_message:
             amount = max(int(parsed['amount']), 1) if 'amount' in parsed else 1
 
-            if stock_name == user:
+            if stock.target_user == user:
                 err_message = 'You cannot buy stock in yourself.'
             elif stock.quantity < amount:
                 err_message = 'Not enough stocks in stock.'
