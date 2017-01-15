@@ -83,18 +83,29 @@ class StockBot(SlackBot):
                           symbols.user_name.setResultsName('stock'))
         self.sell_doc = 'Sell stocks for {}:\n\tsell <stock>'.format(currency_name)
 
+        self.dividend_name = 'Give dividend on demand'
+        self.dividend_expr = CaselessLiteral('dividend') + StringEnd()
+        self.dividend_doc = ('Pay dividend immediately for all stocks. Does not delay next dividend:\n'
+                             '\tdividend')
+
         self.currency_name = currency_name
         self.name_to_sname = stock_users
 
     @register(name='check_name', expr='check_expr', doc='check_doc')
     async def check_stocks(self, user, in_channel, parsed):
         user_obj = get_or_create_user(user)
-        return MessageCommand(
-            user=user,
-            channel=in_channel,
-            text='Your stocks:\n' + '\n'.join('`{}{}`: {}'
-                    .format(stock, ' ' * (4 - len(stock)), amount)
-                for stock, amount in sorted(user_obj.stocks.items())))
+        stocks = user_obj.stocks
+        total_dividend = 0
+        for stock_name, amount in stocks.items():
+            stock_obj = StockDoc.objects.get(name=stock_name)
+            dividend = self.compute_dividend(stock_obj)
+            total_dividend += amount * dividend
+
+        lines = []
+        lines.extend('`{}{}`: {}'.format(stock, ' ' * (4 - len(stock)), amount) for stock, amount in sorted(stocks.items()))
+        lines.append('Your next dividend payment will be {} {}.'.format(int(total_dividend), self.currency_name))
+
+        return MessageCommand(user=user, channel=in_channel, text='\n'.join(lines))
 
     @register(name='info_name', expr='info_expr', doc='info_doc')
     async def stock_info(self, user, in_channel, parsed):
@@ -205,6 +216,10 @@ class StockBot(SlackBot):
         if err_message:
             return MessageCommand(channel=in_channel, user=user, text=err_message)
 
+    @register(name='dividend_name', expr='dividend_expr', doc='dividend_doc', admin=True)
+    async def command_dividend(self, in_channel, user, parsed):
+        await self.pay_dividends()
+
     def compute_price(self, dividend, stock, amount=1, sell=False):
         # First term is number of hours needed to pay off
         total = 0
@@ -230,17 +245,17 @@ class StockBot(SlackBot):
         while True:
             await asyncio.sleep(int(self.next_dividend_time - time.time()))
             self.next_dividend_time += payout_seconds
-            for stock in StockDoc.objects():
-                await self.pay_dividends(stock)
+            await self.pay_dividends()
 
-    async def pay_dividends(self, stock):
-        name = stock.name
-        dividend = self.compute_dividend(stock)
-        for holdings in StockHoldingsDoc.objects():
-            if name in holdings.stocks:
-                await economy.give(holdings.user, holdings.stocks[name] * dividend)
-        stock.update(last_dividend_time=time.time())
-        stock.update(push__dividend_history=dividend)
+    async def pay_dividends(self):
+        for stock in StockDoc.objects():
+            name = stock.name
+            dividend = self.compute_dividend(stock)
+            for holdings in StockHoldingsDoc.objects():
+                if name in holdings.stocks:
+                    await economy.give(holdings.user, holdings.stocks[name] * dividend)
+            stock.update(last_dividend_time=time.time())
+            stock.update(push__dividend_history=dividend)
 
 
 def get_or_create_user(user):

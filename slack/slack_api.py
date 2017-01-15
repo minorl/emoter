@@ -189,7 +189,7 @@ class Slack:
             if is_dm and not (parsed and name in self._handlers.filtered):
                 command = (MessageCommand(channel=None,
                                           user=user_name,
-                                          text=self._help_message())
+                                          text=self._help_message(user_name))
                            if is_dm else None)
             elif (parsed and
                   (is_dm or handler.channels is None or channel_name in handler.channels)):
@@ -360,11 +360,11 @@ class Slack:
                            'channel': channel_id,
                            'text': text})
 
-    def _help_message(self):
+    def _help_message(self, user_name):
         """Iterate over all handlers and join their help texts into one message."""
         res = []
         for handler in self._handlers.filtered.values():
-            if handler.doc:
+            if handler.doc and (not handler.admin or user_name in self._config.admins):
                 res.append('{}:'.format(handler.name))
                 res.append('\t{}'.format(handler.doc))
                 res.append('\tAllowed channels: {}'.format(
