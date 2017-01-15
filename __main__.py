@@ -38,9 +38,11 @@ def main():
         token=config.TOKEN,
         alert=config.ALERT,
         name=config.NAME,
-        load_history=args.load_history)
+        load_history=args.load_history,
+        admins=config.ADMINS)
 
     slackapp = Slack(slack_config)
+
     emote_bot.EmoteBot(channels=config.EMOJI_CHANNELS, slack=slackapp)
     binder_bot.BinderBot(admins=config.ADMINS, max_len=config.MAX_BIND_LEN, slack=slackapp)
     frog_bot.FrogBot(config.FROG_CHANNELS, slack=slackapp)

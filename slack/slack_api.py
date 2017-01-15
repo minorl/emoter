@@ -14,14 +14,14 @@ from .command import MessageCommand
 from .history import HistoryDoc
 
 
-Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels'])
+Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels', 'admin'])
 
 UnfilteredHandler = namedtuple('UnfilteredHandler', ['name', 'func', 'doc', 'channels'])
 
 Handlers = namedtuple('Handlers', ['filtered', 'unfiltered'])
 
 
-SlackConfig = namedtuple('SlackConfig', ['token', 'alert', 'name', 'load_history'])
+SlackConfig = namedtuple('SlackConfig', ['token', 'alert', 'name', 'load_history', 'admins'])
 
 
 def is_message(event, no_channel=False):
@@ -193,9 +193,12 @@ class Slack:
                            if is_dm else None)
             elif (parsed and
                   (is_dm or handler.channels is None or channel_name in handler.channels)):
-                command = await handler.func(user=user_name,
-                                             in_channel=channel_name,
-                                             parsed=parsed[name])
+                if not handler.admin or user_name in self._config.admins:
+                    command = await handler.func(user=user_name,
+                                                 in_channel=channel_name,
+                                                 parsed=parsed[name])
+                else:
+                    command = MessageCommand(channel=channel_name, user=user_name, text='That command is admin only.')
             else:
                 command = None
             await self._exhaust_command(command, event)
@@ -331,8 +334,9 @@ class Slack:
                 name: The name of this handler. This is used as the key to store the handler.
                 doc: Help text
                 priority: Handlers are checked in order of descending priority.
+                admin: Whether or not this handler is only accessible to admins
         """
-        name, expr, channels, doc, priority = data
+        name, expr, channels, doc, priority, admin = data
         if expr is None:
             uhandler = UnfilteredHandler(name=name,
                                          func=func,
@@ -344,7 +348,8 @@ class Slack:
             handler = Handler(name=name,
                               func=func,
                               channels=channels,
-                              doc=doc)
+                              doc=doc,
+                              admin=admin)
             self._handlers.filtered[name] = handler
 
     def _make_message(self, text, channel_id):
