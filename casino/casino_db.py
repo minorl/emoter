@@ -20,7 +20,7 @@ class ScoreboardDoc(Document):
         ]
     }
 
-class GameDoc(Document):
+class CasinoGameDoc(Document):
     """Document representing a casino game"""
     game = StringField()
     jackpot = FloatField()
