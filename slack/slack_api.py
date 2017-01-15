@@ -234,7 +234,6 @@ class Slack:
 
     async def react(self, emoji, event):
         """React to an event"""
-        loop = asyncio.get_event_loop()
         channel = event['channel']
         timestamp = event['ts']
         params = {
@@ -242,12 +241,7 @@ class Slack:
             'name': emoji,
             'channel': channel,
             'timestamp': timestamp}
-        get = partial(requests.get, params=params)
-
-        res = (await loop.run_in_executor(None, get, Slack.base_url + 'reactions.add')).json()
-
-        if res['ok'] is not True:
-            print('Bad return:', res)
+        await make_request(Slack.base_url + 'reactions.add', params)
 
     async def send(self, message, channel):
         """Send a message to a channel"""
@@ -371,3 +365,11 @@ class Slack:
                     'All' if handler.channels is None else handler.channels))
 
         return '\n'.join(res)
+
+
+async def make_request(url, params):
+    loop = asyncio.get_event_loop()
+    get = partial(requests.get, params=params)
+    res = (await loop.run_in_executor(None, get, url)).json()
+    if res['ok'] is not True:
+        print('Bad return:', res)
