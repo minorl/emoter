@@ -5,6 +5,8 @@ from operator import itemgetter
 from league.league_db import GameDoc, PlayerGameDoc, SummonerDoc
 from mongoengine import DoesNotExist
 
+TRACKED_GAME_TYPES = {'NORMAL', 'RANKED_SOLO_5x5', 'RANKED_PREMADE_5x5', 'RANKED_TEAM_5x5', 'ARAM_UNRANKED_5x5', 'RANKED_FLEX_SR'}
+
 
 class LeagueMonitor:
     def __init__(self, api, monitor_names):
@@ -40,7 +42,10 @@ class LeagueMonitor:
                 recent_games.sort(key=itemgetter('createDate'))
                 for game in recent_games:
                     game_id = game['gameId']
-                    if game['gameType'] != 'MATCHED_GAME' or game_id in game_deque:
+                    if (game['gameType'] != 'MATCHED_GAME' or
+                            'subType' not in game or
+                            game['subType'] not in TRACKED_GAME_TYPES or
+                            game_id in game_deque):
                         continue
                     game_deque.append(game_id)
 
