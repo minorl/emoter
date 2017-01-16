@@ -19,7 +19,7 @@ class MoneyBot(SlackBot):
 
         self.work_commands = {'bootstraps': 0, 'study': 1, 'utilizesynergy': 2}
         self.level_commands = {'college': 0, 'graduate': 1}
-        self.level_costs = (500, 100)
+        self.level_costs = (250, 50)
 
         self.check_commands = {'bank': False, 'transcript': True}
 
