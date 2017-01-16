@@ -8,6 +8,8 @@ class AccountDoc(Document):
     """Document representing a user's currency"""
     user = StringField()
     currency = FloatField()
+    secondary_currency = FloatField()
+    level = IntField(default=0)
     meta = {
         'indexes': [
             {
