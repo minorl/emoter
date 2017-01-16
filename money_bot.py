@@ -23,7 +23,7 @@ class MoneyBot(SlackBot):
         self.give_expr = CaselessLiteral('give') + symbols.user_name.setResultsName('user') + symbols.int_num.setResultsName('amount') + StringEnd()
         self.give_doc = 'Create {} in a user\'s account'.format(currency_name)
 
-    @register(name='check_name', expr='check_expr', doc='check_doc', channels='channels')
+    @register(name='check_name', expr='check_expr', doc='check_doc')
     async def command_check(self, user, in_channel, parsed):
         money = await economy.user_currency(user)
         return MessageCommand(
