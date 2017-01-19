@@ -8,7 +8,7 @@ from pyparsing import ParseException
 import requests
 from slack.command import Command
 from slack.parsing import SlackParser
-from util import make_request
+from util import handle_async_exception, make_request
 import websockets
 
 from .command import MessageCommand
@@ -154,7 +154,8 @@ class Slack:
             await self._load_history()
             self._config = SlackConfig(**ChainMap({'load_history': False}, self._config._asdict()))
         if self._clear_commands:
-            await self._clear_commands()
+            loop = asyncio.get_event_loop()
+            loop.create_task(handle_async_exception(self._clear_commands))
             self._config = SlackConfig(**ChainMap({'clear_commands': False}, self._config._asdict()))
 
         return body['url']
@@ -337,8 +338,11 @@ class Slack:
                 continue
             to_delete.append(((channel, message['user'], message['ts']), admin_key))
 
-        for args, admin_key in to_delete:
+        for i, (args, admin_key) in enumerate(to_delete, 1):
+            await asyncio.sleep(1)
             await self.delete_message(*args, admin_key=admin_key)
+            if i % 10 == 0:
+                print('Deleted {} messages so far'.format(i))
 
     async def store_message(self, user, channel, text, timestamp):
         """Store a message into the history DB"""
