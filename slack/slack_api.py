@@ -278,19 +278,22 @@ class Slack:
         channels = chain(self.ids.channel_ids, self.ids.dm_ids if include_dms else [])
         events = defaultdict(list)
         for channel in channels:
-            print('Getting history for channel:', channel)
+            channel_name = (self.ids.cname if channel[0] in ('C', 'G') else
+                            self.ids.dmname)(channel)
+            print('Getting history for channel:', channel_name)
             url = Slack.base_url +\
                 ('channels.history' if channel[0] == 'C' else 'groups.history' if channel[0] == 'G' else 'im.history')
-            oldest = 0
+            latest = float('inf')
             has_more = True
+            params={'token': self._config.token,
+                    'channel': channel,
+                    'inclusive': False}
             while has_more:
                 await asyncio.sleep(1)
                 data = await make_request(
                     url,
-                    params={'token': self._config.token,
-                            'channel': channel,
-                            'oldest': oldest,
-                            'inclusive': False})
+                    params=params
+                    )
                 if 'has_more' not in data:
                     print(data)
                     print(channel)
@@ -298,15 +301,12 @@ class Slack:
                     exit()
                 has_more = data['has_more']
                 messages = data['messages']
-                largest_timestamp = 0.0
+                largest_timestamp = 0
                 for message in messages:
                     if is_message(message, no_channel=True):
                         events[channel].append(message)
-                    timestamp = float(message['ts'])
-                    if timestamp > largest_timestamp:
-                        largest_timestamp = timestamp
-
-                oldest = largest_timestamp
+                    latest = min(float(message['ts']), latest)
+                params['latest'] = latest
                 found_messages += len(messages)
                 print('Found {} messages'.format(found_messages))
         return events
