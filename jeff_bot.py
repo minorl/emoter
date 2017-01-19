@@ -11,8 +11,8 @@ from slack.parsing import symbols
 SAVE_FILE = 'jeff_save.p'
 
 class JeffBot(SlackBot):
-    def __init__(self, jeff_bot_probability, jeff_bot_emojis, jeff_channels, jeff_bot_target, jeff_bot_dead_user, jeff_bot_death_date, slack=None):
-        self.channels = jeff_channels
+    def __init__(self, probability, emojis, channels, target, dead_user, death_date, slack=None):
+        self.channels = channels
         self.pig_name = 'Pig Latin'
         self.pig_expr = CaselessLiteral('pig') + symbols.tail('message') + StringEnd()
         self.pig_doc = ('Translate a message to pig latin:\n'
@@ -28,12 +28,12 @@ class JeffBot(SlackBot):
         self.rip_name = 'RIP'
         self.rip_expr = CaselessLiteral('rip') + StringEnd()
         self.rip_doc = ('Check time since %s\'s last appearance:\n'
-                           '\trip' % jeff_bot_dead_user)
-        self.dead_user = jeff_bot_dead_user
-        self.death_date = datetime.strptime(jeff_bot_death_date, "%m/%d/%Y")
-        self.target = jeff_bot_target
-        self.ramoji = jeff_bot_emojis
-        self.probability = jeff_bot_probability
+                           '\trip' % dead_user)
+        self.dead_user = dead_user
+        self.death_date = datetime.strptime(death_date, "%m/%d/%Y")
+        self.target = target
+        self.ramoji = emojis
+        self.probability = probability
         if os.path.exists(SAVE_FILE):
             with open(SAVE_FILE, 'rb') as f:
                 self.cost = pickle.load(f)
