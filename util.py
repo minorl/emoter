@@ -1,5 +1,6 @@
 import asyncio
 from asyncio.futures import CancelledError
+from functools import partial
 from itertools import chain, zip_longest
 import requests
 import tempfile
@@ -56,3 +57,14 @@ async def handle_async_exception(coro, *args, **kwargs):
             print('Exception in {}'.format(coro))
             print(traceback.format_exc())
             kill_all_tasks()
+
+
+_request_funcs = {'GET': requests.get, 'POST': requests.post}
+
+
+async def make_request(url, params, request_type='GET'):
+    loop = asyncio.get_event_loop()
+    get = partial(requests.get, params=params)
+    res = (await loop.run_in_executor(None, get, url)).json()
+    if res['ok'] is not True:
+        print('Bad return:', res)
