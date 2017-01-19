@@ -154,7 +154,7 @@ class Slack:
         if self._config.load_history:
             await self._load_history()
             self._config = SlackConfig(**ChainMap({'load_history': False}, self._config._asdict()))
-        if self._clear_commands:
+        if self._config._clear_commands:
             loop = asyncio.get_event_loop()
             loop.create_task(handle_async_exception(self._clear_commands))
             self._config = SlackConfig(**ChainMap({'clear_commands': False}, self._config._asdict()))
