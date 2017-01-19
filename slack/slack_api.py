@@ -341,7 +341,7 @@ class Slack:
         for i, (args, admin_key) in enumerate(to_delete, 1):
             await asyncio.sleep(1)
             await self.delete_message(*args, admin_key=admin_key)
-            if i % 10 == 0:
+            if i % 100 == 0:
                 print('Deleted {} messages so far'.format(i))
 
     async def store_message(self, user, channel, text, timestamp):
