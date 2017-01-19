@@ -14,14 +14,14 @@ from .command import MessageCommand
 from .history import HistoryDoc
 
 
-Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels'])
+Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels', 'admin'])
 
 UnfilteredHandler = namedtuple('UnfilteredHandler', ['name', 'func', 'doc', 'channels'])
 
 Handlers = namedtuple('Handlers', ['filtered', 'unfiltered'])
 
 
-SlackConfig = namedtuple('SlackConfig', ['token', 'alert', 'name', 'load_history'])
+SlackConfig = namedtuple('SlackConfig', ['token', 'alert', 'name', 'load_history', 'admins'])
 
 
 def is_message(event, no_channel=False):
@@ -31,7 +31,7 @@ def is_message(event, no_channel=False):
            and 'text' in event
            and not ('reply_to' in event)
            and 'subtype' not in event
-           and event['text']) # Zero length messages are possible via /giphy command on slack
+           and event['text'])  # Zero length messages are possible via /giphy command on slack
 
 
 def is_group_join(event):
@@ -189,17 +189,23 @@ class Slack:
             if is_dm and not (parsed and name in self._handlers.filtered):
                 command = (MessageCommand(channel=None,
                                           user=user_name,
-                                          text=self._help_message())
+                                          text=self._help_message(user_name))
                            if is_dm else None)
             elif (parsed and
                   (is_dm or handler.channels is None or channel_name in handler.channels)):
-                command = await handler.func(user=user_name,
-                                             in_channel=channel_name,
-                                             parsed=parsed[name])
+                if not handler.admin or user_name in self._config.admins:
+                    command = await handler.func(user=user_name,
+                                                 in_channel=channel_name,
+                                                 parsed=parsed[name])
+                else:
+                    command = MessageCommand(channel=channel_name, user=user_name, text='That command is admin only.')
             else:
                 command = None
             await self._exhaust_command(command, event)
         else:
+            parsed = None
+
+        if not is_dm and parsed is None:
             for handler in self._handlers.unfiltered:
                 if (handler.channels is None
                         or channel_name in handler.channels
@@ -228,7 +234,6 @@ class Slack:
 
     async def react(self, emoji, event):
         """React to an event"""
-        loop = asyncio.get_event_loop()
         channel = event['channel']
         timestamp = event['ts']
         params = {
@@ -236,12 +241,7 @@ class Slack:
             'name': emoji,
             'channel': channel,
             'timestamp': timestamp}
-        get = partial(requests.get, params=params)
-
-        res = (await loop.run_in_executor(None, get, Slack.base_url + 'reactions.add')).json()
-
-        if res['ok'] is not True:
-            print('Bad return:', res)
+        await make_request(Slack.base_url + 'reactions.add', params)
 
     async def send(self, message, channel):
         """Send a message to a channel"""
@@ -328,8 +328,9 @@ class Slack:
                 name: The name of this handler. This is used as the key to store the handler.
                 doc: Help text
                 priority: Handlers are checked in order of descending priority.
+                admin: Whether or not this handler is only accessible to admins
         """
-        name, expr, channels, doc, priority = data
+        name, expr, channels, doc, priority, admin = data
         if expr is None:
             uhandler = UnfilteredHandler(name=name,
                                          func=func,
@@ -341,7 +342,8 @@ class Slack:
             handler = Handler(name=name,
                               func=func,
                               channels=channels,
-                              doc=doc)
+                              doc=doc,
+                              admin=admin)
             self._handlers.filtered[name] = handler
 
     def _make_message(self, text, channel_id):
@@ -352,14 +354,22 @@ class Slack:
                            'channel': channel_id,
                            'text': text})
 
-    def _help_message(self):
+    def _help_message(self, user_name):
         """Iterate over all handlers and join their help texts into one message."""
         res = []
         for handler in self._handlers.filtered.values():
-            if handler.doc:
+            if handler.doc and (not handler.admin or user_name in self._config.admins):
                 res.append('{}:'.format(handler.name))
                 res.append('\t{}'.format(handler.doc))
                 res.append('\tAllowed channels: {}'.format(
                     'All' if handler.channels is None else handler.channels))
 
         return '\n'.join(res)
+
+
+async def make_request(url, params):
+    loop = asyncio.get_event_loop()
+    get = partial(requests.get, params=params)
+    res = (await loop.run_in_executor(None, get, url)).json()
+    if res['ok'] is not True:
+        print('Bad return:', res)

@@ -10,6 +10,7 @@ import base64
 from PIL import Image
 from PIL import ImageDraw
 import os
+import asyncio
 
 class FaceReplaceBot(SlackBot):
     def __init__(self, slack=None):
@@ -28,7 +29,7 @@ class FaceReplaceBot(SlackBot):
             img_url = parsed['image'][1:-1]
             image_file = await get_image(img_url)
         except ValueError:
-            return MessageCommand(channel=None, user=user, text='Image {} not found.'.format(img_url))
+            return MessageCommand(channel=in_channel, user=user, text='Image {} not found.'.format(img_url))
         
         filename = next(tempfile._get_candidate_names()) + '.png'
 
@@ -36,10 +37,16 @@ class FaceReplaceBot(SlackBot):
             try:
                 faces = await detect_face(image, self.MAX_FACES)
             except errors.HttpError:
-                return MessageCommand(channel=None, user=user, text='Failed API call. Image may be too large.')
+                return MessageCommand(channel=in_channel, user=user, text='Failed API call. Image may be too large.')
+            
             # Reset the file pointer, so we can read the file again
             image.seek(0)
-            replace_faces(image, faces, filename)
+
+            if faces:
+                replace_faces(image, faces, filename)
+            else:
+                return MessageCommand(channel=in_channel, user=user, text='No faces found.')
+
         os.remove(image_file)
         return UploadCommand(channel=in_channel, user=user, file_name=filename, delete=True)
 
@@ -71,9 +78,10 @@ async def detect_face(face_file, max_results=4):
     request = service.images().annotate(body={
         'requests': batch_request,
         })
-    response = request.execute()
+    loop = asyncio.get_event_loop()
+    response = await loop.run_in_executor(None, request.execute)
 
-    return response['responses'][0]['faceAnnotations']
+    return response['responses'][0]['faceAnnotations'] if 'faceAnnotations' in response['responses'][0] else None
 
 def replace_faces(image, faces, output_filename):
     """Nick Cage the faces.
@@ -93,7 +101,7 @@ def replace_faces(image, faces, output_filename):
         nickFaceData = json.load(f)
     nickVerts = nickFaceData[0]['fdBoundingPoly']['vertices']
     #top left corner
-    nickFaceCorner = (min(v.get('x', 0.0) for v in nickVerts), min(v.get('y', 0.0) for v in nickVerts))
+    nickFaceCorner = (min(v.get('x', 0) for v in nickVerts), min(v.get('y', 0) for v in nickVerts))
     nickFaceCoords = get_bbox_height_width(nickVerts)
 
     with open('faces/nick.png', 'rb') as img:
@@ -112,8 +120,8 @@ def replace_faces(image, faces, output_filename):
             rnick = nick.resize((int(nick.width*widthRatio), int(nick.height*heightRatio)))
             #line up top left corners
             newNickCorner = (int(nickFaceCorner[0]*widthRatio), int(nickFaceCorner[1]*heightRatio))
-            faceCorner = (min(v.get('x', 0.0) for v in vertices), min(v.get('y', 0.0) for v in vertices))
-            
+            faceCorner = (min(v.get('x', 0) for v in vertices), min(v.get('y', 0) for v in vertices))
+
             im.paste(rnick, (faceCorner[0]-newNickCorner[0], faceCorner[1]-newNickCorner[1]), rnick)
 
     im.save(output_filename)
