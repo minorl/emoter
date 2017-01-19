@@ -68,3 +68,4 @@ async def make_request(url, params, request_type='GET'):
     res = (await loop.run_in_executor(None, get, url)).json()
     if res['ok'] is not True:
         print('Bad return:', res)
+    return res

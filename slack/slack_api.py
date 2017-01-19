@@ -1,6 +1,6 @@
 """Module for handling interaction with Slack"""
 import asyncio
-from collections import ChainMap, namedtuple
+from collections import ChainMap, defaultdict, namedtuple
 from functools import partial
 from itertools import chain
 import json
@@ -8,6 +8,7 @@ from pyparsing import ParseException
 import requests
 from slack.command import Command
 from slack.parsing import SlackParser
+import time
 from util import handle_async_exception, make_request
 import websockets
 
@@ -175,7 +176,8 @@ class Slack:
                     while True:
                         command = None
                         event = await self.get_event()
-                        print('Got event', event)
+                        if 'subtype' not in event or event['subtype'] != 'message_deleted':
+                            print('Got event', event)
                         if is_message(event):
                             await self._handle_message(event)
                         elif is_group_join(event):
@@ -271,10 +273,11 @@ class Slack:
         event = await self.socket.recv()
         return json.loads(event)
 
-    def _iterate_history(self, include_dms=False):
+    async def _get_history(self, include_dms=False):
         found_messages = 0
         channels = chain(self.ids.channel_ids, self.ids.dm_ids if include_dms else [])
         print('All DMs:', list(self.ids.dm_ids))
+        events = defaultdict(list)
         for channel in channels:
             print('Getting history for channel:', channel)
             url = Slack.base_url +\
@@ -282,12 +285,13 @@ class Slack:
             oldest = 0
             has_more = True
             while has_more:
-                res = requests.get(url,
-                                   params={'token': self._config.token,
-                                           'channel': channel,
-                                           'oldest': oldest,
-                                           'inclusive': False})
-                data = res.json()
+                await asyncio.sleep(1)
+                data = await make_request(
+                    url,
+                    params={'token': self._config.token,
+                            'channel': channel,
+                            'oldest': oldest,
+                            'inclusive': False})
                 if 'has_more' not in data:
                     print(data)
                     print(channel)
@@ -298,7 +302,7 @@ class Slack:
                 largest_timestamp = 0.0
                 for message in messages:
                     if is_message(message, no_channel=True):
-                        yield channel, message
+                        events[channel].append(message)
                     timestamp = float(message['ts'])
                     if timestamp > largest_timestamp:
                         largest_timestamp = timestamp
@@ -306,37 +310,42 @@ class Slack:
                 oldest = largest_timestamp
                 found_messages += len(messages)
                 print('Found {} messages'.format(found_messages))
+        return events
 
     async def _load_history(self):
         """Wipe the existing history and load the Slack message archive into the database"""
         HistoryDoc.objects().delete()
         print('History Cleared')
-        for channel, message in self._iterate_history():
-            try:
-                await self.store_message(
-                    channel=channel,
-                    user=message['user'],
-                    text=message['text'],
-                    timestamp=message['ts'])
-            except KeyError:
-                print([k for k in message])
-                exit()
+        events = await self._get_history()
+        for channel, messages in events.items():
+            for message in messages:
+                try:
+                    await self.store_message(
+                        channel=channel,
+                        user=message['user'],
+                        text=message['text'],
+                        timestamp=message['ts'])
+                except KeyError:
+                    print([k for k in message])
+                    exit()
 
     async def _clear_commands(self):
         to_delete = []
         bot_id = self.ids.uid(self._config.name)
-        for channel, message in self._iterate_history(include_dms=True):
-            admin_key = True
-            if message['user'] == bot_id:
-                admin_key = False
-            elif channel[0] != 'D':
-                try:
-                    self._parser.parse(message['text'], dm=channel[0] == 'D')
-                except ParseException:
+        events = await self._get_history(include_dms=True)
+        for channel, messages in events.items():
+            for message in messages:
+                admin_key = True
+                if message['user'] == bot_id:
+                    admin_key = False
+                elif channel[0] != 'D':
+                    try:
+                        self._parser.parse(message['text'], dm=channel[0] == 'D')
+                    except ParseException:
+                        continue
+                else:
                     continue
-            else:
-                continue
-            to_delete.append(((channel, message['user'], message['ts']), admin_key))
+                to_delete.append(((channel, message['user'], message['ts']), admin_key))
 
         for i, (args, admin_key) in enumerate(to_delete, 1):
             await asyncio.sleep(1)
