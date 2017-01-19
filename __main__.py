@@ -60,8 +60,8 @@ def main():
         probability=config.JEFF_BOT_PROBABILITY,
         emojis=config.JEFF_BOT_EMOJIS,
         target=config.JEFF_BOT_TARGET,
-        users=config.JEFF_DEAD_USERS,
-        death_date=config.JEFF_DATE_USERS,
+        dead_user=config.JEFF_DEAD_USER,
+        death_date=config.JEFF_DEATH_DATE,
         channels=config.JEFF_CHANNELS,
         slack=slackapp)
 
