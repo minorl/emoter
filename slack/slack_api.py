@@ -1,6 +1,6 @@
 """Module for handling interaction with Slack"""
 import asyncio
-from collections import ChainMap, namedtuple
+from collections import ChainMap, defaultdict, namedtuple
 from functools import partial
 from itertools import chain
 import json
@@ -8,6 +8,8 @@ from pyparsing import ParseException
 import requests
 from slack.command import Command
 from slack.parsing import SlackParser
+import time
+from util import handle_async_exception, make_request
 import websockets
 
 from .command import MessageCommand
@@ -21,7 +23,8 @@ UnfilteredHandler = namedtuple('UnfilteredHandler', ['name', 'func', 'doc', 'cha
 Handlers = namedtuple('Handlers', ['filtered', 'unfiltered'])
 
 
-SlackConfig = namedtuple('SlackConfig', ['token', 'alert', 'name', 'load_history', 'admins'])
+SlackConfig = namedtuple('SlackConfig',
+    ['token', 'admin_token', 'alert', 'name', 'load_history', 'clear_commands', 'admins'])
 
 
 def is_message(event, no_channel=False):
@@ -60,6 +63,7 @@ class SlackIds:
         self._u_id_to_name = {u['id']: u['name'] for u in users}
 
         self._u_name_to_dm = {}
+        self._dm_to_u_name = {}
         for u_name, u_id in self._u_name_to_id.items():
             response = requests.get(
                 Slack.base_url + 'im.open',
@@ -68,7 +72,9 @@ class SlackIds:
             if body['ok'] is False and body['error'] in {'cannot_dm_bot', 'user_disabled'}:
                 pass
             elif body['ok']:
-                self._u_name_to_dm[u_name] = body['channel']['id']
+                cid = body['channel']['id']
+                self._u_name_to_dm[u_name] = cid
+                self._dm_to_u_name[cid] = u_name
             else:
                 print(body)
                 raise ValueError
@@ -77,6 +83,11 @@ class SlackIds:
     def channel_ids(self):
         """Use for iterating over all channels"""
         return self._c_id_to_name.keys()
+
+    @property
+    def dm_ids(self):
+        """Use for iterating over all DM conversations"""
+        return self._dm_to_u_name.keys()
 
     def add_channel(self, cname, cid):
         """Add a channel to ID registry"""
@@ -107,6 +118,10 @@ class SlackIds:
     def dmid(self, uname):
         """Translate user name to DM room ID"""
         return self._u_name_to_dm[uname]
+
+    def dmname(self, uname):
+        """Translate DM room ID to user name"""
+        return self._dm_to_u_name[uname]
 
 
 class Slack:
@@ -139,6 +154,10 @@ class Slack:
         if self._config.load_history:
             await self._load_history()
             self._config = SlackConfig(**ChainMap({'load_history': False}, self._config._asdict()))
+        if self._clear_commands:
+            loop = asyncio.get_event_loop()
+            loop.create_task(handle_async_exception(self._clear_commands))
+            self._config = SlackConfig(**ChainMap({'clear_commands': False}, self._config._asdict()))
 
         return body['url']
 
@@ -157,7 +176,8 @@ class Slack:
                     while True:
                         command = None
                         event = await self.get_event()
-                        print('Got event', event)
+                        if 'subtype' not in event or event['subtype'] != 'message_deleted':
+                            print('Got event', event)
                         if is_message(event):
                             await self._handle_message(event)
                         elif is_group_join(event):
@@ -253,22 +273,27 @@ class Slack:
         event = await self.socket.recv()
         return json.loads(event)
 
-    async def _load_history(self):
-        """Wipe the existing history and load the Slack message archive into the database"""
-        HistoryDoc.objects().delete()
-        print('History Cleared')
+    async def _get_history(self, include_dms=False):
         found_messages = 0
-        for channel in self.ids.channel_ids:
-            url = Slack.base_url + ('channels.history' if channel[0] == 'C' else 'groups.history')
-            oldest = 0
+        channels = chain(self.ids.channel_ids, self.ids.dm_ids if include_dms else [])
+        events = defaultdict(list)
+        for channel in channels:
+            channel_name = (self.ids.cname if channel[0] in ('C', 'G') else
+                            self.ids.dmname)(channel)
+            print('Getting history for channel:', channel_name)
+            url = Slack.base_url +\
+                ('channels.history' if channel[0] == 'C' else 'groups.history' if channel[0] == 'G' else 'im.history')
+            latest = float('inf')
             has_more = True
+            params={'token': self._config.token,
+                    'channel': channel,
+                    'inclusive': False}
             while has_more:
-                res = requests.get(url,
-                                   params={'token': self._config.token,
-                                           'channel': channel,
-                                           'oldest': oldest,
-                                           'inclusive': False})
-                data = res.json()
+                await asyncio.sleep(1)
+                data = await make_request(
+                    url,
+                    params=params
+                    )
                 if 'has_more' not in data:
                     print(data)
                     print(channel)
@@ -276,25 +301,56 @@ class Slack:
                     exit()
                 has_more = data['has_more']
                 messages = data['messages']
-                largest_timestamp = 0.0
+                largest_timestamp = 0
                 for message in messages:
                     if is_message(message, no_channel=True):
-                        try:
-                            await self.store_message(
-                                channel=channel,
-                                user=message['user'],
-                                text=message['text'],
-                                timestamp=message['ts'])
-                        except KeyError:
-                            print([k for k in message])
-                            exit()
-                    timestamp = float(message['ts'])
-                    if timestamp > largest_timestamp:
-                        largest_timestamp = timestamp
-
-                oldest = largest_timestamp
+                        events[channel].append(message)
+                    latest = min(float(message['ts']), latest)
+                params['latest'] = latest
                 found_messages += len(messages)
-                print('Have {} messages'.format(found_messages))
+                print('Found {} messages'.format(found_messages))
+        return events
+
+    async def _load_history(self):
+        """Wipe the existing history and load the Slack message archive into the database"""
+        HistoryDoc.objects().delete()
+        print('History Cleared')
+        events = await self._get_history()
+        for channel, messages in events.items():
+            for message in messages:
+                try:
+                    await self.store_message(
+                        channel=channel,
+                        user=message['user'],
+                        text=message['text'],
+                        timestamp=message['ts'])
+                except KeyError:
+                    print([k for k in message])
+                    exit()
+
+    async def _clear_commands(self):
+        to_delete = []
+        bot_id = self.ids.uid(self._config.name)
+        events = await self._get_history(include_dms=True)
+        for channel, messages in events.items():
+            for message in messages:
+                admin_key = True
+                if message['user'] == bot_id:
+                    admin_key = False
+                elif channel[0] != 'D':
+                    try:
+                        self._parser.parse(message['text'], dm=channel[0] == 'D')
+                    except ParseException:
+                        continue
+                else:
+                    continue
+                to_delete.append(((channel, message['user'], message['ts']), admin_key))
+
+        for i, (args, admin_key) in enumerate(to_delete, 1):
+            await asyncio.sleep(1)
+            await self.delete_message(*args, admin_key=admin_key)
+            if i % 100 == 0:
+                print('Deleted {} messages so far'.format(i))
 
     async def store_message(self, user, channel, text, timestamp):
         """Store a message into the history DB"""
@@ -315,6 +371,17 @@ class Slack:
                                   },
                           files={'file': f}
                           )
+
+    async def delete_message(self, channel, user, timestamp, admin_key=True):
+        """Delete a message"""
+        channel = channel if channel else self.ids.dmid(user)
+        token = self._config.admin_token if admin_key else self._config.token
+        url = Slack.base_url + 'chat.delete'
+        params = {'token': token,
+                  'ts': str(timestamp),
+                  'channel': channel,
+                  'as_user': True}
+        await make_request(url, params, request_type='POST')
 
     def register_handler(self, func, data):
         """
@@ -365,11 +432,3 @@ class Slack:
                     'All' if handler.channels is None else handler.channels))
 
         return '\n'.join(res)
-
-
-async def make_request(url, params):
-    loop = asyncio.get_event_loop()
-    get = partial(requests.get, params=params)
-    res = (await loop.run_in_executor(None, get, url)).json()
-    if res['ok'] is not True:
-        print('Bad return:', res)

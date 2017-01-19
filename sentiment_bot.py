@@ -32,7 +32,7 @@ class SentimentBot(SlackBot):
         self.judge_name = 'Measure sentiment'
         self.judge_expr = (CaselessLiteral('lyte') +
                            Optional(symbols.flag_with_arg('decimals', Word(nums))) +
-                           symbols.tail('text') + StringEnd())
+                           symbols.tail('text'))
         self.judge_doc = ('Evaluate the sentiment of a piece of text:\n'
                           '\tlyte [--decimals <decimals>] <message>')
 

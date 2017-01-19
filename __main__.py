@@ -32,13 +32,16 @@ def main():
 
     parser = argparse.ArgumentParser(description='A simple slack bot')
     parser.add_argument('--load_history', action='store_true')
+    parser.add_argument('--clear_commands', action='store_true')
     args = parser.parse_args()
 
     slack_config = SlackConfig(
         token=config.TOKEN,
+        admin_token=config.ADMIN_TOKEN,
         alert=config.ALERT,
         name=config.NAME,
         load_history=args.load_history,
+        clear_commands=args.clear_commands,
         admins=config.ADMINS)
 
     slackapp = Slack(slack_config)

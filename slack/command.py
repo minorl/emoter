@@ -36,6 +36,15 @@ class MessageCommand(Command):
             await slack.send(self.text[4000 * index: 4000 * (index + 1)], channel)
 
 
+class DeleteCommand(Command):
+    """Deletes the response that this command was in response to"""
+    def __init__(self, channel=None, user=None, text=''):
+        pass
+
+    async def execute(self, slack, event=None):
+        await slack.delete_message(event['channel'], event['user'], event['ts'])
+
+
 Record = namedtuple('Record', ['channel', 'user', 'text', 'time'])
 
 
