@@ -57,10 +57,12 @@ def main():
     quote_bot.QuoteBot(slack=slackapp)
     wordcloud_bot.WordcloudBot(slack=slackapp)
     jeff_bot.JeffBot(
-        jeff_bot_probability=config.JEFF_BOT_PROBABILITY,
-        jeff_bot_emojis=config.JEFF_BOT_EMOJIS,
-        jeff_bot_target=config.JEFF_BOT_TARGET,
-        jeff_channels=config.JEFF_CHANNELS,
+        probability=config.JEFF_BOT_PROBABILITY,
+        emojis=config.JEFF_BOT_EMOJIS,
+        target=config.JEFF_BOT_TARGET,
+        users=config.JEFF_DEAD_USERS,
+        death_date=config.JEFF_DATE_USERS,
+        channels=config.JEFF_CHANNELS,
         slack=slackapp)
 
     markov_bot.MarkovBot(slack=slackapp)
