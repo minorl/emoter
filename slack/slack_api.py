@@ -274,7 +274,6 @@ class Slack:
     def _iterate_history(self, include_dms=False):
         found_messages = 0
         channels = chain(self.ids.channel_ids, self.ids.dm_ids if include_dms else [])
-        print('All DMs:', list(self.ids.dm_ids))
         for channel in channels:
             print('Getting history for channel:', channel)
             url = Slack.base_url +\
