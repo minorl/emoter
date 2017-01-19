@@ -1,3 +1,4 @@
+from datetime import datetime
 from economy import economy
 import os
 import pickle
@@ -10,7 +11,7 @@ from slack.parsing import symbols
 SAVE_FILE = 'jeff_save.p'
 
 class JeffBot(SlackBot):
-    def __init__(self, jeff_bot_probability, jeff_bot_emojis, jeff_channels, jeff_bot_target, slack=None):
+    def __init__(self, jeff_bot_probability, jeff_bot_emojis, jeff_channels, jeff_bot_target, jeff_bot_dead_user, jeff_bot_death_date, slack=None):
         self.channels = jeff_channels
         self.pig_name = 'Pig Latin'
         self.pig_expr = CaselessLiteral('pig') + symbols.tail('message') + StringEnd()
@@ -24,6 +25,12 @@ class JeffBot(SlackBot):
         self.hankeycost_expr = CaselessLiteral('hankeycost') + StringEnd()
         self.hankeycost_doc = ('Check the current price of the hankey command:\n'
                            '\thankeycost')
+        self.rip_name = 'RIP'
+        self.rip_expr = CaselessLiteral('rip') + StringEnd()
+        self.rip_doc = ('Check time since %s\'s last appearance:\n'
+                           '\trip' % jeff_bot_dead_user)
+        self.dead_user = jeff_bot_dead_user
+        self.death_date = datetime.strptime(jeff_bot_death_date, "%m/%d/%Y")
         self.target = jeff_bot_target
         self.ramoji = jeff_bot_emojis
         self.probability = jeff_bot_probability
@@ -34,6 +41,12 @@ class JeffBot(SlackBot):
             self.cost = 1
             with open(SAVE_FILE, 'wb') as f:
                 pickle.dump(self.cost, f)
+
+    @register(name='rip_name', expr='rip_expr', doc='rip_doc')
+    async def command_rip(self, user, in_channel, parsed):
+        d1 = self.death_date
+        d2 = datetime.now()
+        return MessageCommand(text='%s was last seen %s days ago.' % (self.dead_user, (d2-d1).days), channel=in_channel, user=user)
 
     @register(channels='channels')
     async def command_random(self, user, in_channel, message):
