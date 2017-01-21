@@ -111,20 +111,18 @@ class StockBot(SlackBot):
     async def stock_info(self, user, in_channel, parsed):
         stock_name = parsed['stock'].upper()
         try:
-            stock = StockDoc.objects.get(name=stock_name)
+            if stock_name == 'all':
+                stocks = StockDoc.objects()
+            else:
+                stocks = [StockDoc.objects.get(name=stock_name)]
         except DoesNotExist:
             return MessageCommand(channel=in_channel, user=user, text='Stock {} does not exist'.format(stock_name))
 
-        result = []
-        dividend = self.compute_dividend(stock)
-        buy_price = self.compute_price(dividend, stock)
-        sell_price = self.compute_price(dividend, stock, sell=True)
-        result.append('*{}* ({} deaths):'.format(stock.name, self.get_deaths(stock.target_user)))
-        result.append('\tCurrent dividend: {:.01f} {} per {} hours'.format(dividend, self.currency_name, self.payout_hours))
-        result.append('\tBuy for: {} {}'.format(int(buy_price), self.currency_name))
-        result.append('\tSell for: {} {}'.format(int(sell_price), self.currency_name))
-        result.append('\tShares available: {}/{}'.format(stock.quantity, stock.total))
-        result.append('Note that prices increase as supply goes down. The costs shown are for the next stock purchased or sold.')
+        for stock in stocks:
+            result = []
+            dividend = self.compute_dividend(stock)
+            buy_price = self.compute_price(dividend, stock)
+            result.append('*{}* ({} deaths) - Dividend: {:.01f} - Price: {} - Shares {}/{} ({:.0%})'.format(stock.name, self.get_deaths(stock.target_user), dividend, buy_price, stock.quantity, stock.total, stock.quantity/stock.total))
         return MessageCommand(user=user, channel=in_channel, text='\n'.join(result))
 
     @register(name='available_name', expr='available_expr', doc='available_doc')

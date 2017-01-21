@@ -14,8 +14,10 @@ link = Word(printables)
 int_num = Word(nums)
 
 def flag(name):
-    return CaselessLiteral('--' + name).setResultsName(name)
+    dashes = '--' if len(name) > 1 else '-'
+    return CaselessLiteral(dashes + name).setResultsName(name)
 
 
 def flag_with_arg(name, argtype):
-    return CaselessLiteral('--' + name) + argtype.setResultsName(name)
+    dashes = '--' if len(name) > 1 else '-'
+    return CaselessLiteral(dashes + name) + argtype.setResultsName(name)
