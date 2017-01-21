@@ -154,7 +154,7 @@ class Slack:
         if self._config.load_history:
             await self._load_history()
             self._config = SlackConfig(**ChainMap({'load_history': False}, self._config._asdict()))
-        if self._config._clear_commands:
+        if self._config.clear_commands:
             loop = asyncio.get_event_loop()
             loop.create_task(handle_async_exception(self._clear_commands))
             self._config = SlackConfig(**ChainMap({'clear_commands': False}, self._config._asdict()))
@@ -346,6 +346,7 @@ class Slack:
                     continue
                 to_delete.append(((channel, message['user'], message['ts']), admin_key))
 
+        print('Found {} messages to delete'.format(len(to_delete)))
         for i, (args, admin_key) in enumerate(to_delete, 1):
             await asyncio.sleep(1)
             await self.delete_message(*args, admin_key=admin_key)
