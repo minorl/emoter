@@ -77,7 +77,7 @@ class StockBot(SlackBot):
                          symbols.user_name.setResultsName('stock'))
         self.buy_doc = 'Buy stocks for {}:\n\tbuy <stock>'.format(currency_name)
 
-        self.sell_name = 'Sell Stocks'
+        self.sell_name = 'Sell Stocks'`
         self.sell_expr = (CaselessLiteral('sell') +
                           Optional(symbols.flag_with_arg('amount', Word(nums))) +
                           symbols.user_name.setResultsName('stock'))
@@ -122,8 +122,7 @@ class StockBot(SlackBot):
             result = []
             dividend = self.compute_dividend(stock)
             buy_price = self.compute_price(dividend, stock)
-            sell_price = self.compute_price(dividend, stock, sell=True)
-            result.append('*{}* ({} deaths) - Dividend: {:.01f} {} - Price: {} {} - Shares {}/{} ({:.0%})'.format(stock.name, self.get_deaths(stock.target_user), dividend, self.currency_name, sell_price, self.currency_name, stock.quantity, stock.total, stock.quantity/stock.total))
+            result.append('*{}* ({} deaths) - Dividend: {:.01f} - Price: {} - Shares {}/{} ({:.0%})'.format(stock.name, self.get_deaths(stock.target_user), dividend, buy_price, stock.quantity, stock.total, stock.quantity/stock.total))
         return MessageCommand(user=user, channel=in_channel, text='\n'.join(result))
 
     @register(name='available_name', expr='available_expr', doc='available_doc')
