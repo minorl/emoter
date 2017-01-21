@@ -77,7 +77,7 @@ class StockBot(SlackBot):
                          symbols.user_name.setResultsName('stock'))
         self.buy_doc = 'Buy stocks for {}:\n\tbuy <stock>'.format(currency_name)
 
-        self.sell_name = 'Sell Stocks'`
+        self.sell_name = 'Sell Stocks'
         self.sell_expr = (CaselessLiteral('sell') +
                           Optional(symbols.flag_with_arg('amount', Word(nums))) +
                           symbols.user_name.setResultsName('stock'))
