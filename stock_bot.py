@@ -135,7 +135,7 @@ class StockBot(SlackBot):
         for price, stock in stock_dividends:
             if 'v' in parsed:
                 stock_availability = stock.quantity/stock.total
-                result.append('*{}* {} _({:.0%} / {})_'.format(stock.name, price, stock_availability, self.get_deaths(stock.target_user)))
+                result.append('*{}* {} _({}:skull:{:.0%})_'.format(stock.name, price, self.get_deaths(stock.target_user), stock_availability))
             else:
                 result.append('*{}* {}'.format(stock.name, price))
         out_message = (' | '.join(result) + '\n' + datetime.fromtimestamp(self.next_dividend_time)
