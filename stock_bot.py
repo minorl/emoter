@@ -133,8 +133,7 @@ class StockBot(SlackBot):
         stock_dividends = [(int(self.compute_price(self.compute_dividend(stock), stock)), stock) for stock in StockDoc.objects()]
         stock_dividends.sort(reverse=True, key=itemgetter(0))
         for price, stock in stock_dividends:
-            stock_availability = stock.quantity/stock.total
-            result.append('*{}* {} _({:.0%} / {})_'.format(stock.name, price, stock_availability, self.get_deaths(stock.target_user)))
+            result.append('*{}* {}'.format(stock.name, price))
         out_message = (' | '.join(result) + '\n' + datetime.fromtimestamp(self.next_dividend_time)
             .strftime('Next dividend %c {}').format(self.timezone))
         return MessageCommand(user=user, channel=in_channel, text=out_message)
