@@ -8,6 +8,7 @@ from economy.econ_singleton import economy
 from league.monitor import get_recent_games
 from mongoengine import DoesNotExist
 import numpy as np
+from operator import attrgetter
 from pyparsing import alphas, CaselessLiteral, nums, Optional, StringEnd, Word
 from slack.bot import register, SlackBot
 from slack.command import MessageCommand
@@ -111,18 +112,27 @@ class StockBot(SlackBot):
     async def stock_info(self, user, in_channel, parsed):
         stock_name = parsed['stock'].upper()
         try:
-            if stock_name == 'all':
-                stocks = StockDoc.objects()
+            if stock_name == 'ALL':
+                stocks = list(StockDoc.objects())
+                stocks.sort(key=attrgetter('name'))
             else:
                 stocks = [StockDoc.objects.get(name=stock_name)]
         except DoesNotExist:
             return MessageCommand(channel=in_channel, user=user, text='Stock {} does not exist'.format(stock_name))
 
+        result = []
         for stock in stocks:
-            result = []
             dividend = self.compute_dividend(stock)
             buy_price = self.compute_price(dividend, stock)
-            result.append('*{}* ({} deaths) - Dividend: {:.01f} - Price: {} - Shares {}/{} ({:.0%})'.format(stock.name, self.get_deaths(stock.target_user), dividend, buy_price, stock.quantity, stock.total, stock.quantity/stock.total))
+            result.append('`{}{} - {} deaths - Dividend: {:.01f} - Price: {:3d} - Shares {:3d}/{} ({:4.0%})`'.format(
+                ' ' * (4 - len(stock.name)),
+                stock.name,
+                self.get_deaths(stock.target_user),
+                dividend,
+                buy_price,
+                stock.quantity,
+                stock.total,
+                stock.quantity / stock.total))
         return MessageCommand(user=user, channel=in_channel, text='\n'.join(result))
 
     @register(name='available_name', expr='available_expr', doc='available_doc')
