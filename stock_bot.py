@@ -124,7 +124,7 @@ class StockBot(SlackBot):
         for stock in stocks:
             dividend = self.compute_dividend(stock)
             buy_price = self.compute_price(dividend, stock)
-            result.append('`{}{} - {} deaths - Dividend: {:.01f} - Price: {:3d} - Shares {:3d}/{} ({:4.0%})`'.format(
+            result.append('`{}{} - {:3d} deaths - Dividend: {:4.01f} - Price: {:3d} - Shares {:3d}/{} ({:4.0%})`'.format(
                 ' ' * (4 - len(stock.name)),
                 stock.name,
                 self.get_deaths(stock.target_user),
