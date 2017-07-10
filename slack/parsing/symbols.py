@@ -15,7 +15,7 @@ int_num = Word(nums)
 
 dumb_single_quotes = QuotedString("‘", endQuoteChar = "’", escChar = "\\")
 dumb_double_quotes = QuotedString("“", endQuoteChar = "”", escChar = "\\")
-quotedString.addParseAction(removeQuotes) #this might be bad
+quotedString.addParseAction(removeQuotes)
 comma_list = delimitedList(( dumb_single_quotes | dumb_double_quotes | quotedString
                | originalTextFor(OneOrMore(Word(printables, excludeChars=","))))).setResultsName('comma_list')
 

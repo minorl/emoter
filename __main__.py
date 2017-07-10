@@ -21,6 +21,7 @@ import stock_bot
 import twitch_bot
 import wordcloud_bot
 import casino_bot
+import poll_bot
 from util import handle_async_exception
 
 from slack.slack_api import Slack, SlackConfig
@@ -85,7 +86,8 @@ def main():
     haiku_bot.HaikuBot(slack=slackapp)
     face_replace_bot.FaceReplaceBot(slack=slackapp)
     casino_bot.CasinoBot(config.MONEY_NAME, slack=slackapp)
-
+    poll_bot.PollBot(slack=slackapp)
+    
     # League stuff
     league_api = LeagueApi(config.LEAGUE_KEY)
     league_monitor = LeagueMonitor(league_api, monitor_names=list(config.STOCK_USERS.values()))
