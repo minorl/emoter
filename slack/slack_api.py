@@ -46,6 +46,10 @@ def is_team_join(event):
     """Check whether an event is a new user joining the team"""
     return 'type' in event and event['type'] == 'team_join'
 
+def is_response(event):
+    """Check whether an event is a response indicating a message was successfully sent"""
+    return 'reply_to' in event and 'ok' in event and event['ok']
+
 
 class SlackIds:
     """Helper class for holding user, channel and room IDs."""
@@ -135,6 +139,7 @@ class Slack:
         self._parser = SlackParser(self._config.alert)
         self._loaded_commands = []
         self._message_id = 0
+        self._response_callbacks = {}
 
         self.ids = None
         self.socket = None
@@ -180,6 +185,8 @@ class Slack:
                             print('Got event', event)
                         if is_message(event):
                             await self._handle_message(event)
+                        elif is_response(event):
+                            await self._handle_response(event)
                         elif is_group_join(event):
                             cname = event['channel']['name']
                             cid = event['channel']['id']
@@ -242,6 +249,14 @@ class Slack:
                 text=event['text'],
                 timestamp=event['ts'])
 
+    async def _handle_response(self, event):
+        rt = event["reply_to"]
+        if rt in self._response_callbacks:
+            cb, ch = self._response_callbacks[rt]
+            event["channel"] = ch
+            await self._exhaust_command(cb(), event)
+            del self._response_callbacks[rt]
+
     async def _exhaust_command(self, command, event):
         """Run a command, any command that generates and so on until None is returned."""
         while command:
@@ -263,10 +278,10 @@ class Slack:
             'timestamp': timestamp}
         await make_request(Slack.base_url + 'reactions.add', params)
 
-    async def send(self, message, channel):
+    async def send(self, message, channel, success_callback = None):
         """Send a message to a channel"""
         print('[{}] Sending message: {}'.format(channel, message))
-        await self.socket.send(self._make_message(message, channel))
+        await self.socket.send(self._make_message(message, channel, success_callback))
 
     async def get_event(self):
         """Get a JSON event from and convert it to a dict"""
@@ -414,9 +429,13 @@ class Slack:
                               admin=admin)
             self._handlers.filtered[name] = handler
 
-    def _make_message(self, text, channel_id):
-        """Build a JSON message"""
+    def _make_message(self, text, channel_id, response_callback):
+        """Build a JSON message & register callback if provided"""
         m_id, self._message_id = self._message_id, self._message_id + 1
+        #register callback for when response is received indicating successful message post
+        #need to save channel as well, since that isn't provided in response event
+        if response_callback: 
+            self._response_callbacks[m_id] = (response_callback, channel_id)
         return json.dumps({'id': m_id,
                            'type': 'message',
                            'channel': channel_id,

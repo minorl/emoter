@@ -19,10 +19,11 @@ class Command(metaclass=abc.ABCMeta):
 
 class MessageCommand(Command):
     """Most basic Command, sends a message."""
-    def __init__(self, channel=None, user=None, text=''):
+    def __init__(self, channel=None, user=None, text='', success_callback=None):
         self.channel = channel
         self.user = user
         self.text = text
+        self.callback = success_callback
 
     async def execute(self, slack, event=None):
         """
@@ -33,7 +34,7 @@ class MessageCommand(Command):
                    slack.ids.dmid(self.user))
 
         for index in range((len(self.text) - 1) // 4000 + 1):
-            await slack.send(self.text[4000 * index: 4000 * (index + 1)], channel)
+            await slack.send(self.text[4000 * index: 4000 * (index + 1)], channel, self.callback)
 
 
 class DeleteCommand(Command):
