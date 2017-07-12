@@ -18,7 +18,6 @@ _filter_reg = re.compile('[' + string.punctuation + ']')
 
 
 def preprocess(text):
-    print(text)
     return [word.lower() for word in _filter_reg.sub(' ', unidecode(text)).split()]
 
 

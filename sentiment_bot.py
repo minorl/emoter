@@ -128,7 +128,6 @@ class SentimentBot(SlackBot):
         sent_hist = SentimentDoc.objects(**kwargs)
 
         known_timestamps = set(obj.time for obj in sent_hist)
-        print(known_timestamps)
         new_messages = [rec for rec in complete_hist if rec.time not in known_timestamps]
 
         if new_messages:
