@@ -5,7 +5,8 @@ message = OneOrMore(Word(alphanums + "#")).setResultsName('message')
 
 
 def tail(name):
-    return Suppress(White(exact=1)) + CharsNotIn('').setResultsName(name)
+    return Suppress(White(max=1)) + OneOrMore(CharsNotIn('')).setResultsName(name)
+
 channel_name = Word(alphanums + '-').setResultsName('channel')
 
 user_name = Word(alphanums + '-_.')

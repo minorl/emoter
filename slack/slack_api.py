@@ -16,10 +16,12 @@ from .command import MessageCommand
 from .history import HistoryDoc
 
 
-Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels', 'admin'])
+Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels', 'admin', 'include_timestamp'])
+
 
 UnfilteredHandler = namedtuple(
-    'UnfilteredHandler', ['name', 'func', 'doc', 'channels'])
+    'UnfilteredHandler', ['name', 'func', 'doc', 'channels', 'include_timestamp'])
+
 
 Handlers = namedtuple('Handlers', ['filtered', 'unfiltered'])
 
@@ -232,10 +234,11 @@ class Slack:
                            if is_dm else None)
             elif (parsed and
                   (is_dm or handler.channels is None or channel_name in handler.channels)):
+                kwargs = {'timestamp': event['ts']} if handler.include_timestamp else {}
                 if not handler.admin or user_name in self._config.admins:
                     command = await handler.func(user=user_name,
                                                  in_channel=channel_name,
-                                                 parsed=parsed[name])
+                                                 parsed=parsed[name], **kwargs)
                 else:
                     command = MessageCommand(
                         channel=channel_name, user=user_name, text='That command is admin only.')
@@ -250,10 +253,12 @@ class Slack:
                 if (handler.channels is None
                         or channel_name in handler.channels
                         or is_dm):
+                    kwargs = {'timestamp': event['ts']} if handler.include_timestamp else {}
                     command = await handler.func(
                         user=user_name,
                         in_channel=channel_name,
-                        message=event['text'])
+                        message=event['text'],
+                        **kwargs)
                     await self._exhaust_command(command, event)
 
             await self.store_message(
@@ -430,13 +435,15 @@ class Slack:
                 doc: Help text
                 priority: Handlers are checked in order of descending priority.
                 admin: Whether or not this handler is only accessible to admins
+                include_timestamp: Whether the command receives message timestamps
         """
-        name, expr, channels, doc, priority, admin = data
+        name, expr, channels, doc, priority, admin, include_ts = data
         if expr is None:
             uhandler = UnfilteredHandler(name=name,
                                          func=func,
                                          channels=channels,
-                                         doc=doc)
+                                         doc=doc,
+                                         include_timestamp=include_ts)
             self._handlers.unfiltered.append(uhandler)
         else:
             self._parser.add_command(expr, name, priority)
@@ -444,7 +451,8 @@ class Slack:
                               func=func,
                               channels=channels,
                               doc=doc,
-                              admin=admin)
+                              admin=admin,
+                              include_timestamp=include_ts)
             self._handlers.filtered[name] = handler
 
     def _make_message(self, text, channel_id, response_callback):

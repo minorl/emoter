@@ -95,7 +95,7 @@ def main():
     with tf.Graph().as_default(), tf.Session() as session:
         sentiment_bot.SentimentBot(session=session, slack=slackapp)
         loop = asyncio.get_event_loop()
-        loop.create_task(handle_async_exception(league_monitor.run))
+        # loop.create_task(handle_async_exception(league_monitor.run))
         loop.run_until_complete(slackapp.run())
 
 

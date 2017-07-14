@@ -17,7 +17,8 @@ END_TOKEN = '<end>'
 _filter_reg = re.compile('[' + string.punctuation + ']')
 
 
-def preprocess(text): return [word.lower() for word in _filter_reg.sub(' ', unidecode(text)).split()]
+def preprocess(text):
+    return [word.lower() for word in _filter_reg.sub(' ', unidecode(text)).split()]
 
 
 def get_corpus_words(f_name):
