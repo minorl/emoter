@@ -7,6 +7,7 @@ from .history import HistoryDoc
 
 
 class Command(metaclass=abc.ABCMeta):
+
     """Abstract class for Commands. Commands are used by bots to cause action in Slack."""
     @abc.abstractmethod
     async def execute(self, slack, event=None):
@@ -18,11 +19,14 @@ class Command(metaclass=abc.ABCMeta):
 
 
 class MessageCommand(Command):
+
     """Most basic Command, sends a message."""
-    def __init__(self, channel=None, user=None, text=''):
+
+    def __init__(self, channel=None, user=None, text='', success_callback=None):
         self.channel = channel
         self.user = user
         self.text = text
+        self.callback = success_callback
 
     async def execute(self, slack, event=None):
         """
@@ -33,11 +37,13 @@ class MessageCommand(Command):
                    slack.ids.dmid(self.user))
 
         for index in range((len(self.text) - 1) // 4000 + 1):
-            await slack.send(self.text[4000 * index: 4000 * (index + 1)], channel)
+            await slack.send(self.text[4000 * index: 4000 * (index + 1)], channel, self.callback)
 
 
 class DeleteCommand(Command):
+
     """Deletes the response that this command was in response to"""
+
     def __init__(self, channel=None, user=None, text=''):
         pass
 
@@ -49,10 +55,12 @@ Record = namedtuple('Record', ['channel', 'user', 'text', 'time'])
 
 
 class HistoryCommand(Command):
+
     """
     Pass a callback to slack with signature:
         f(hist_list) where hist is a list of (channel, user, text, time) namedtuples.
     """
+
     def __init__(self, callback, channel=None, user=None):
         self.callback = callback
         self.channel = channel
@@ -67,13 +75,16 @@ class HistoryCommand(Command):
             kwargs['user'] = self.user
 
         hist_objects = HistoryDoc.objects(**kwargs)
-        hist_list = [Record(r.channel, r.user, r.text, r.time) for r in hist_objects]
+        hist_list = [Record(r.channel, r.user, r.text, r.time)
+                     for r in hist_objects]
 
         return await self.callback(hist_list)
 
 
 class ReactCommand(Command):
+
     """Reacts to the message this command was created in response to"""
+
     def __init__(self, emoji):
         self._emoji = emoji
 
@@ -82,7 +93,9 @@ class ReactCommand(Command):
 
 
 class UploadCommand(Command):
+
     """Uploads a file in the specified channel"""
+
     def __init__(self, user=None, channel=None, file_name=None, delete=False):
         self.user = user
         self.channel = channel
