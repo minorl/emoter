@@ -1,6 +1,6 @@
 from pyparsing import alphanums, nums, CaselessLiteral, CharsNotIn, delimitedList, OneOrMore, originalTextFor, printables, QuotedString, quotedString, Regex, removeQuotes, Suppress, White, Word
 
-emoji = Regex(':[\S]+:').setResultsName('emoji')
+emoji = Regex(':[\\S]+:').setResultsName('emoji')
 message = OneOrMore(Word(alphanums + "#")).setResultsName('message')
 
 

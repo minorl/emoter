@@ -4,17 +4,20 @@ from collections import ChainMap, defaultdict, namedtuple
 from functools import partial
 from itertools import chain
 import json
+import logging
+import time
+
+from .command import MessageCommand
+from .history import HistoryDoc
 from pyparsing import ParseException
 import requests
 from slack.command import Command
 from slack.parsing import SlackParser
-import time
 from util import handle_async_exception, make_request
 import websockets
 
-from .command import MessageCommand
-from .history import HistoryDoc
 
+logger = logging.getLogger(__name__)
 
 Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels', 'admin', 'include_timestamp'])
 
@@ -182,11 +185,11 @@ class Slack:
     async def run(self):
         """Main loop"""
         while True:
+            logger.info('Connecting to websocket')
             websocket_url = await self.connect()
             try:
                 async with websockets.connect(websocket_url) as self.socket:
-                    print('Running {} preloaded commands'.format(
-                        len(self._loaded_commands)))
+                    logger.info('Running %d preloaded commands', len(self._loaded_commands))
 
                     for command in self._loaded_commands:
                         await self._exhaust_command(command, None)
