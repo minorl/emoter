@@ -51,11 +51,12 @@ class MarkovBot(SlackBot):
         self.reddit_most_recent_comments[user] = len(comments)
 
         for comment in new_comments:
-            self._load_message(user, comment, reddit=True)
+            if comment:
+                self._load_message(user, comment, reddit=True)
 
         for title, post in new_posts:
-            self._load_message(user, title, reddit=True)
-            self._load_message(user, post, reddit=True)
+            if post:
+                self._load_message(user, post, reddit=True)
 
         return bool(posts or comments)
 
