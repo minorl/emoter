@@ -1,9 +1,10 @@
-from collections import defaultdict
+from collections import Counter, defaultdict
 from functools import partial
 import random
 import time
 
 import config
+from mongoengine.errors import NotUniqueError
 import numpy as np
 from pyparsing import CaselessLiteral, nums, Optional, StringEnd, Word
 from sentiment import lstm
@@ -133,12 +134,19 @@ class SentimentBot(SlackBot):
         if new_messages:
             for rec in new_messages:
                 neg, neut, pos = self.predict(rec.text)
-                SentimentDoc(
-                    time=rec.time,
-                    user=rec.user,
-                    channel=rec.channel,
-                    neg_sent=neg,
-                    neut_sent=neut,
-                    pos_sent=pos).save()
+                try:
+                    SentimentDoc(
+                        time=rec.time,
+                        user=rec.user,
+                        channel=rec.channel,
+                        neg_sent=neg,
+                        neut_sent=neut,
+                        pos_sent=pos).save()
+                except NotUniqueError as e:
+                    print(Counter(rec.time for rec in new_messages).most_common(5))
+                    print('Bad save for user {}'.format(user))
+                    print([(o.user, o.channel) for o in SentimentDoc.objects(time=rec.time)])
+                    print(rec.user, rec.channel, rec.text)
+                    exit()
             sent_hist = SentimentDoc.objects(**kwargs)
         return sent_hist

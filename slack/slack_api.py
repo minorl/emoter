@@ -4,37 +4,43 @@ from collections import ChainMap, defaultdict, namedtuple
 from functools import partial
 from itertools import chain
 import json
+import logging
+import time
+
+from .command import MessageCommand
+from .history import HistoryDoc
 from pyparsing import ParseException
 import requests
 from slack.command import Command
 from slack.parsing import SlackParser
-import time
 from util import handle_async_exception, make_request
 import websockets
 
-from .command import MessageCommand
-from .history import HistoryDoc
 
+logger = logging.getLogger(__name__)
 
 Handler = namedtuple('Handler', ['name', 'func', 'doc', 'channels', 'admin', 'include_timestamp'])
 
-UnfilteredHandler = namedtuple('UnfilteredHandler', ['name', 'func', 'doc', 'channels', 'include_timestamp'])
+
+UnfilteredHandler = namedtuple(
+    'UnfilteredHandler', ['name', 'func', 'doc', 'channels', 'include_timestamp'])
+
 
 Handlers = namedtuple('Handlers', ['filtered', 'unfiltered'])
 
 
 SlackConfig = namedtuple('SlackConfig',
-    ['token', 'admin_token', 'alert', 'name', 'load_history', 'clear_commands', 'admins'])
+                         ['token', 'admin_token', 'alert', 'name', 'load_history', 'clear_commands', 'admins'])
 
 
 def is_message(event, no_channel=False):
     """Check whether an event is a regular message."""
     return ('type' in event and event['type'] == 'message'
-           and (no_channel or ('channel' in event and event['channel']))
-           and 'text' in event
-           and not ('reply_to' in event)
-           and 'subtype' not in event
-           and event['text'])  # Zero length messages are possible via /giphy command on slack
+            and (no_channel or ('channel' in event and event['channel']))
+            and 'text' in event
+            and not ('reply_to' in event)
+            and 'subtype' not in event
+            and event['text'])  # Zero length messages are possible via /giphy command on slack
 
 
 def is_group_join(event):
@@ -47,8 +53,15 @@ def is_team_join(event):
     return 'type' in event and event['type'] == 'team_join'
 
 
+def is_response(event):
+    """Check whether an event is a response indicating a message was successfully sent"""
+    return 'reply_to' in event and 'ok' in event and event['ok']
+
+
 class SlackIds:
+
     """Helper class for holding user, channel and room IDs."""
+
     def __init__(self, token, channels, users, groups):
         """
         Args:
@@ -57,8 +70,10 @@ class SlackIds:
             users: 'users' from body of response to rtm.start API call
             groups: 'groups' from body of response to rtm.start API call
         """
-        self._c_name_to_id = {c['name']: c['id'] for c in chain(channels, groups)}
-        self._c_id_to_name = {c['id']: c['name'] for c in chain(channels, groups)}
+        self._c_name_to_id = {c['name']: c['id']
+                              for c in chain(channels, groups)}
+        self._c_id_to_name = {c['id']: c['name']
+                              for c in chain(channels, groups)}
         self._u_name_to_id = {u['name']: u['id'] for u in users}
         self._u_id_to_name = {u['id']: u['name'] for u in users}
 
@@ -125,6 +140,7 @@ class SlackIds:
 
 
 class Slack:
+
     """Main class which handles bots and communicates with Slack"""
     base_url = 'https://slack.com/api/'
 
@@ -135,6 +151,7 @@ class Slack:
         self._parser = SlackParser(self._config.alert)
         self._loaded_commands = []
         self._message_id = 0
+        self._response_callbacks = {}
 
         self.ids = None
         self.socket = None
@@ -148,26 +165,31 @@ class Slack:
 
     async def connect(self):
         """Connects to Slack, loads IDs, and returns the websocket URL."""
-        response = requests.get(Slack.base_url + 'rtm.start', params={'token': self._config.token})
+        response = requests.get(
+            Slack.base_url + 'rtm.start', params={'token': self._config.token})
         body = response.json()
-        self.ids = SlackIds(self._config.token, body['channels'], body['users'], body['groups'])
+        self.ids = SlackIds(
+            self._config.token, body['channels'], body['users'], body['groups'])
         if self._config.load_history:
             await self._load_history()
-            self._config = SlackConfig(**ChainMap({'load_history': False}, self._config._asdict()))
+            self._config = SlackConfig(
+                **ChainMap({'load_history': False}, self._config._asdict()))
         if self._config.clear_commands:
             loop = asyncio.get_event_loop()
             loop.create_task(handle_async_exception(self._clear_commands))
-            self._config = SlackConfig(**ChainMap({'clear_commands': False}, self._config._asdict()))
+            self._config = SlackConfig(
+                **ChainMap({'clear_commands': False}, self._config._asdict()))
 
         return body['url']
 
     async def run(self):
         """Main loop"""
         while True:
+            logger.info('Connecting to websocket')
             websocket_url = await self.connect()
             try:
                 async with websockets.connect(websocket_url) as self.socket:
-                    print('Running {} preloaded commands'.format(len(self._loaded_commands)))
+                    logger.info('Running %d preloaded commands', len(self._loaded_commands))
 
                     for command in self._loaded_commands:
                         await self._exhaust_command(command, None)
@@ -180,6 +202,8 @@ class Slack:
                             print('Got event', event)
                         if is_message(event):
                             await self._handle_message(event)
+                        elif is_response(event):
+                            await self._handle_response(event)
                         elif is_group_join(event):
                             cname = event['channel']['name']
                             cid = event['channel']['id']
@@ -219,7 +243,8 @@ class Slack:
                                                  in_channel=channel_name,
                                                  parsed=parsed[name], **kwargs)
                 else:
-                    command = MessageCommand(channel=channel_name, user=user_name, text='That command is admin only.')
+                    command = MessageCommand(
+                        channel=channel_name, user=user_name, text='That command is admin only.')
             else:
                 command = None
             await self._exhaust_command(command, event)
@@ -245,6 +270,14 @@ class Slack:
                 text=event['text'],
                 timestamp=event['ts'])
 
+    async def _handle_response(self, event):
+        rt = event["reply_to"]
+        if rt in self._response_callbacks:
+            cb, ch = self._response_callbacks[rt]
+            event["channel"] = ch
+            await self._exhaust_command(cb(), event)
+            del self._response_callbacks[rt]
+
     async def _exhaust_command(self, command, event):
         """Run a command, any command that generates and so on until None is returned."""
         while command:
@@ -266,10 +299,10 @@ class Slack:
             'timestamp': timestamp}
         await make_request(Slack.base_url + 'reactions.add', params)
 
-    async def send(self, message, channel):
+    async def send(self, message, channel, success_callback=None):
         """Send a message to a channel"""
         print('[{}] Sending message: {}'.format(channel, message))
-        await self.socket.send(self._make_message(message, channel))
+        await self.socket.send(self._make_message(message, channel, success_callback))
 
     async def get_event(self):
         """Get a JSON event from and convert it to a dict"""
@@ -278,25 +311,27 @@ class Slack:
 
     async def _get_history(self, include_dms=False):
         found_messages = 0
-        channels = chain(self.ids.channel_ids, self.ids.dm_ids if include_dms else [])
+        channels = chain(
+            self.ids.channel_ids, self.ids.dm_ids if include_dms else [])
         events = defaultdict(list)
         for channel in channels:
             channel_name = (self.ids.cname if channel[0] in ('C', 'G') else
                             self.ids.dmname)(channel)
             print('Getting history for channel:', channel_name)
             url = Slack.base_url +\
-                ('channels.history' if channel[0] == 'C' else 'groups.history' if channel[0] == 'G' else 'im.history')
+                ('channels.history' if channel[
+                 0] == 'C' else 'groups.history' if channel[0] == 'G' else 'im.history')
             latest = float('inf')
             has_more = True
-            params={'token': self._config.token,
-                    'channel': channel,
-                    'inclusive': False}
+            params = {'token': self._config.token,
+                      'channel': channel,
+                      'inclusive': False}
             while has_more:
                 await asyncio.sleep(1)
                 data = await make_request(
                     url,
                     params=params
-                    )
+                )
                 if 'has_more' not in data:
                     print(data)
                     print(channel)
@@ -342,12 +377,14 @@ class Slack:
                     admin_key = False
                 elif channel[0] != 'D':
                     try:
-                        self._parser.parse(message['text'], dm=channel[0] == 'D')
+                        self._parser.parse(
+                            message['text'], dm=channel[0] == 'D')
                     except ParseException:
                         continue
                 else:
                     continue
-                to_delete.append(((channel, message['user'], message['ts']), admin_key))
+                to_delete.append(
+                    ((channel, message['user'], message['ts']), admin_key))
 
         print('Found {} messages to delete'.format(len(to_delete)))
         for i, (args, admin_key) in enumerate(to_delete, 1):
@@ -361,7 +398,8 @@ class Slack:
         u_name = self.ids.uname(user)
         c_name = self.ids.cname(channel)
         if u_name != self._config.name and text and text[0] != self._config.alert:
-            HistoryDoc(user=u_name, channel=c_name, text=text, time=timestamp).save()
+            HistoryDoc(
+                user=u_name, channel=c_name, text=text, time=timestamp).save()
 
     async def upload_file(self, f_name, channel, user):
         """Upload a file to the specified channel or DM"""
@@ -420,9 +458,14 @@ class Slack:
                               include_timestamp=include_ts)
             self._handlers.filtered[name] = handler
 
-    def _make_message(self, text, channel_id):
-        """Build a JSON message"""
+    def _make_message(self, text, channel_id, response_callback):
+        """Build a JSON message & register callback if provided"""
         m_id, self._message_id = self._message_id, self._message_id + 1
+        # register callback for when response is received indicating successful message post
+        # need to save channel as well, since that isn't provided in response
+        # event
+        if response_callback:
+            self._response_callbacks[m_id] = (response_callback, channel_id)
         return json.dumps({'id': m_id,
                            'type': 'message',
                            'channel': channel_id,
