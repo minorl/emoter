@@ -11,6 +11,8 @@ channel_name = Word(alphanums + '-').setResultsName('channel')
 
 user_name = Word(alphanums + '-_.')
 
+mention = Regex('<@(U[0-9A-Z]{8})>')
+
 link = Word(printables)
 
 int_num = Word(nums)

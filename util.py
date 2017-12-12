@@ -2,6 +2,7 @@ import asyncio
 from asyncio.futures import CancelledError
 from functools import partial
 from itertools import chain, zip_longest
+import re
 import requests
 import tempfile
 import shutil
@@ -69,3 +70,15 @@ async def make_request(url, params, request_type='GET'):
     if res['ok'] is not True:
         print('Bad return:', res)
     return res
+
+
+MENTION_RE = re.compile('<@(U[0-9A-Z]{8})>$')
+def mention_to_uid(mention):
+    res = MENTION_RE.match(mention)
+    if res is None:
+        return None
+    return res.group(1)
+
+
+def uid_to_mention(uid):
+    return '<@{}>'.format(uid)

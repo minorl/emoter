@@ -7,6 +7,7 @@ from random import random, choice
 from slack.bot import SlackBot, register
 from slack.command import MessageCommand, ReactCommand
 from slack.parsing import symbols
+from util import mention_to_uid
 
 SAVE_FILE = 'jeff_save.p'
 
@@ -18,7 +19,7 @@ class JeffBot(SlackBot):
         self.pig_doc = ('Translate a message to pig latin:\n'
                            '\tpig <message>')
         self.hankey_name = 'Hankey'
-        self.hankey_expr = CaselessLiteral('hankey') + White() + symbols.user_name.setResultsName('target') + StringEnd()
+        self.hankey_expr = CaselessLiteral('hankey') + White() + symbols.mention.setResultsName('target') + StringEnd()
         self.hankey_doc = ('Target a user for hankeying:\n'
                            '\thankey <user>')
         self.hankeycost_name = 'Hankey Cost'
@@ -69,7 +70,7 @@ class JeffBot(SlackBot):
     @register(name='hankey_name', expr='hankey_expr', doc='hankey_doc')
     async def command_hankey(self, user, in_channel, parsed):
         if await economy.user_currency(user) >= self.cost:
-            self.target = parsed['target']
+            self.target = mention_to_uid(parsed['target'])
             await economy.give(user, -self.cost)
             self.cost += 1
             with open(SAVE_FILE, 'wb') as f:

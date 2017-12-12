@@ -1,14 +1,10 @@
 """Module for handling interaction with Slack"""
 import asyncio
 from collections import ChainMap, defaultdict, namedtuple
-from functools import partial
 from itertools import chain
 import json
 import logging
-import time
 
-from .command import MessageCommand
-from .history import HistoryDoc
 from pyparsing import ParseException
 import requests
 from slack.command import Command
@@ -16,6 +12,8 @@ from slack.parsing import SlackParser
 from util import handle_async_exception, make_request
 import websockets
 
+from .command import MessageCommand
+from .history import HistoryDoc
 
 logger = logging.getLogger(__name__)
 
@@ -76,10 +74,14 @@ class SlackIds:
                               for c in chain(channels, groups)}
         self._u_name_to_id = {u['name']: u['id'] for u in users}
         self._u_id_to_name = {u['id']: u['name'] for u in users}
+        self._disp_name_to_u_id = {u['profile']['display_name_normalized']: u['id'] for u in users}
+        self._u_id_to_disp_name = {v: k for k, v in self._disp_name_to_u_id.items()}
+        print(self._u_name_to_id)
 
-        self._u_name_to_dm = {}
-        self._dm_to_u_name = {}
-        for u_name, u_id in self._u_name_to_id.items():
+        self._u_id_to_dm = {}
+        self._dm_to_uid = {}
+
+        for u_id in self._u_name_to_id.values():
             response = requests.get(
                 Slack.base_url + 'im.open',
                 params={'token': token, 'user': u_id})
@@ -88,8 +90,8 @@ class SlackIds:
                 pass
             elif body['ok']:
                 cid = body['channel']['id']
-                self._u_name_to_dm[u_name] = cid
-                self._dm_to_u_name[cid] = u_name
+                self._u_id_to_dm[u_id] = cid
+                self._dm_to_uid[cid] = u_id
             else:
                 print(body)
                 raise ValueError
@@ -102,7 +104,7 @@ class SlackIds:
     @property
     def dm_ids(self):
         """Use for iterating over all DM conversations"""
-        return self._dm_to_u_name.keys()
+        return self._dm_to_ddisp_nameisp_name.disp_namekeys()
 
     def add_channel(self, cname, cid):
         """Add a channel to ID registry"""
@@ -114,13 +116,13 @@ class SlackIds:
         self._u_name_to_id[uname] = uid
         self._u_id_to_name[uid] = uname
 
-    def uid(self, uname):
+    def uid(self, uid):
         """Translate username to user ID"""
-        return self._u_name_to_id[uname]
+        return self._u_name_to_id[uid]
 
-    def uname(self, uid):
-        """Translate user ID to username"""
-        return self._u_id_to_name[uid]
+    def disp_name(self, uid):
+        """Translate user ID to dipslay name"""
+        return self._u_id_to_disp_name[uid]
 
     def cid(self, cname):
         """Translate channel name to channel ID"""
@@ -130,13 +132,13 @@ class SlackIds:
         """Translate channel ID to channel name"""
         return self._c_id_to_name[cid]
 
-    def dmid(self, uname):
+    def dmid(self, uid):
         """Translate user name to DM room ID"""
-        return self._u_name_to_dm[uname]
+        return self._u_id_to_dm[uid]
 
-    def dmname(self, uname):
+    def dm_to_id(self, dmid):
         """Translate DM room ID to user name"""
-        return self._dm_to_u_name[uname]
+        return self._dm_to_uid[dmid]
 
 
 class Slack:
@@ -154,6 +156,7 @@ class Slack:
         self._response_callbacks = {}
 
         self.ids = None
+        self.admins = set()
         self.socket = None
 
     def preload_commands(self, commands):
@@ -170,6 +173,8 @@ class Slack:
         body = response.json()
         self.ids = SlackIds(
             self._config.token, body['channels'], body['users'], body['groups'])
+        for admin_name in self._config.admins:
+            self.admins.add(self.ids.uid(admin_name))
         if self._config.load_history:
             await self._load_history()
             self._config = SlackConfig(
@@ -217,7 +222,6 @@ class Slack:
 
     async def _handle_message(self, event):
         user = event['user']
-        user_name = self.ids.uname(user)
         channel = event['channel']
         is_dm = channel[0] == 'D'
         channel_name = None if is_dm else self.ids.cname(channel)
@@ -232,19 +236,19 @@ class Slack:
             # Only print help message for DMs
             if is_dm and not (parsed and name in self._handlers.filtered):
                 command = (MessageCommand(channel=None,
-                                          user=user_name,
-                                          text=self._help_message(user_name))
+                                          user=user,
+                                          text=self._help_message(user))
                            if is_dm else None)
             elif (parsed and
                   (is_dm or handler.channels is None or channel_name in handler.channels)):
                 kwargs = {'timestamp': event['ts']} if handler.include_timestamp else {}
-                if not handler.admin or user_name in self._config.admins:
-                    command = await handler.func(user=user_name,
+                if not handler.admin or user in self.admins:
+                    command = await handler.func(user=user,
                                                  in_channel=channel_name,
                                                  parsed=parsed[name], **kwargs)
                 else:
                     command = MessageCommand(
-                        channel=channel_name, user=user_name, text='That command is admin only.')
+                        channel=channel_name, user=user, text='That command is admin only.')
             else:
                 command = None
             await self._exhaust_command(command, event)
@@ -254,11 +258,10 @@ class Slack:
         if not is_dm and parsed is None:
             for handler in self._handlers.unfiltered:
                 if (handler.channels is None
-                        or channel_name in handler.channels
-                        or is_dm):
+                        or channel_name in handler.channels):
                     kwargs = {'timestamp': event['ts']} if handler.include_timestamp else {}
                     command = await handler.func(
-                        user=user_name,
+                        user=user,
                         in_channel=channel_name,
                         message=event['text'],
                         **kwargs)
@@ -326,6 +329,7 @@ class Slack:
             params = {'token': self._config.token,
                       'channel': channel,
                       'inclusive': False}
+            seen_timestamps = set() # Inclusive flag seems to be ignored
             while has_more:
                 await asyncio.sleep(1)
                 data = await make_request(
@@ -333,17 +337,18 @@ class Slack:
                     params=params
                 )
                 if 'has_more' not in data:
+                    print('has_more not in data')
                     print(data)
                     print(channel)
                     print(self.ids.cname(channel))
                     exit()
                 has_more = data['has_more']
                 messages = data['messages']
-                largest_timestamp = 0
                 for message in messages:
-                    if is_message(message, no_channel=True):
+                    if is_message(message, no_channel=True) and message['ts'] not in seen_timestamps:
                         events[channel].append(message)
-                    latest = min(float(message['ts']), latest)
+                        seen_timestamps.add(message['ts'])
+                        latest = min(float(message['ts']), latest)
                 params['latest'] = latest
                 found_messages += len(messages)
                 print('Found {} messages'.format(found_messages))
@@ -395,11 +400,12 @@ class Slack:
 
     async def store_message(self, user, channel, text, timestamp):
         """Store a message into the history DB"""
-        u_name = self.ids.uname(user)
+        bot_id = self.ids.uid(self._config.name)
+
         c_name = self.ids.cname(channel)
-        if u_name != self._config.name and text and text[0] != self._config.alert:
+        if user != bot_id and text and text[0] != self._config.alert:
             HistoryDoc(
-                user=u_name, channel=c_name, text=text, time=timestamp).save()
+                uid=user, channel=c_name, text=text, time=timestamp).save()
 
     async def upload_file(self, f_name, channel, user):
         """Upload a file to the specified channel or DM"""
@@ -471,11 +477,11 @@ class Slack:
                            'channel': channel_id,
                            'text': text})
 
-    def _help_message(self, user_name):
+    def _help_message(self, uid):
         """Iterate over all handlers and join their help texts into one message."""
         res = []
         for handler in self._handlers.filtered.values():
-            if handler.doc and (not handler.admin or user_name in self._config.admins):
+            if handler.doc and (not handler.admin or uid in self.admins):
                 res.append('{}:'.format(handler.name))
                 res.append('\t{}'.format(handler.doc))
                 res.append('\tAllowed channels: {}'.format(

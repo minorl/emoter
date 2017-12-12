@@ -12,6 +12,7 @@ from sentiment.history import SentimentDoc
 from slack.bot import register, SlackBot
 from slack.command import HistoryCommand, MessageCommand
 from slack.parsing import symbols
+from util import mention_to_uid, uid_to_mention
 
 COOLDOWN = 50
 
@@ -20,14 +21,14 @@ class SentimentBot(SlackBot):
     def __init__(self, session, slack):
         self.name = 'Sentiment Stats'
         self.expr = (CaselessLiteral('feels') +
-                     Optional(symbols.user_name.setResultsName('user')) +
+                     Optional(symbols.mention.setResultsName('user')) +
                      StringEnd())
         self.doc = ('Show someone\'s feels:\n'
                     '\tfeels [<user>]')
 
         self.extrema_name = 'Emotional Moments'
         self.extrema_expr = ((CaselessLiteral('grumpy') | CaselessLiteral('happy') | CaselessLiteral('meh')).setResultsName('emotion') +
-                             Optional(symbols.user_name.setResultsName('user')) +
+                             Optional(symbols.mention.setResultsName('user')) +
                              StringEnd())
         self.extrema_doc = ('Show a particularly grumpy, happy or meh quote:\n'
                             '\t(grumpy|happy|meh) <user>')
@@ -49,14 +50,15 @@ class SentimentBot(SlackBot):
     @register(name='name', expr='expr', doc='doc')
     async def command_stats(self, user, in_channel, parsed):
         kwargs = {}
+        target_uid = mention_to_uid(parsed['user']) if 'user' in parsed else None
         kwargs['callback'] = partial(
             self._stats_callback,
             in_channel,
             user,
-            target_user=parsed['user'] if 'user' in parsed else None)
+            target_user=target_uid if target_uid else None)
 
-        if 'user' in parsed:
-            kwargs['user'] = parsed['user']
+        if target_uid:
+            kwargs['user'] = target_uid
         return HistoryCommand(**kwargs)
 
     async def _stats_callback(self, out_channel, user, hist_list, target_user=None):
@@ -74,15 +76,16 @@ class SentimentBot(SlackBot):
     async def command_extrema(self, user, in_channel, parsed):
         kwargs = {}
         emotion = {'grumpy': 'neg_sent', 'meh': 'neut_sent', 'happy': 'pos_sent'}[parsed['emotion']]
+        target_uid = mention_to_uid(parsed['user']) if 'user' in parsed else None
         kwargs['callback'] = partial(
             self._extrema_callback,
             emotion,
             in_channel,
             user,
-            target_user=parsed['user'] if 'user' in parsed else None)
+            target_user= target_uid if target_uid in parsed else None)
 
-        if 'user' in parsed:
-            kwargs['user'] = parsed['user']
+        if target_uid:
+            kwargs['user'] = target_uid
         return HistoryCommand(**kwargs)
 
     async def _extrema_callback(self, field, out_channel, user, hist_list, target_user=None):
@@ -91,7 +94,7 @@ class SentimentBot(SlackBot):
         q_time = max(self._complete_cache(hist_list, user=target_user), key=lambda obj: getattr(obj, field)).time
         quote = next(r for r in hist_list if r.time == q_time)
         year = time.strftime('%Y', time.localtime(float(quote.time)))
-        return MessageCommand(channel=out_channel, user=user, text='> {}\n-{} {}'.format(quote.text, quote.user, year))
+        return MessageCommand(channel=out_channel, user=user, text='> {}\n-{} {}'.format(quote.text, uid_to_mention(quote.uid), year))
 
     @register(name='judge_name', expr='judge_expr', doc='judge_doc')
     async def command_judge(self, user, in_channel, parsed):
@@ -137,7 +140,7 @@ class SentimentBot(SlackBot):
                 try:
                     SentimentDoc(
                         time=rec.time,
-                        user=rec.user,
+                        user=rec.uid,
                         channel=rec.channel,
                         neg_sent=neg,
                         neut_sent=neut,
@@ -146,7 +149,7 @@ class SentimentBot(SlackBot):
                     print(Counter(rec.time for rec in new_messages).most_common(5))
                     print('Bad save for user {}'.format(user))
                     print([(o.user, o.channel) for o in SentimentDoc.objects(time=rec.time)])
-                    print(rec.user, rec.channel, rec.text)
+                    print(rec.uid, rec.channel, rec.text)
                     exit()
             sent_hist = SentimentDoc.objects(**kwargs)
         return sent_hist

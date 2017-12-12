@@ -11,13 +11,13 @@ from slack.command import HistoryCommand, MessageCommand, UploadCommand
 from slack.parsing import symbols
 from wordcloud import WordCloud, STOPWORDS, ImageColorGenerator
 import tempfile
-from util import get_image
+from util import get_image, mention_to_uid
 
 class WordcloudBot(SlackBot):
     def __init__(self, slack):
         self.name = 'Display a wordcloud'
         self.expr = (CaselessLiteral('wordcloud') +
-                     (Optional(symbols.flag_with_arg('user', symbols.user_name)) &
+                     (Optional(symbols.flag_with_arg('user', symbols.mention)) &
                       Optional(symbols.flag_with_arg('channel', symbols.channel_name)) &
                       Optional(symbols.flag('all_channels')) &
                       Optional(symbols.flag_with_arg('image', symbols.link))
@@ -31,7 +31,7 @@ class WordcloudBot(SlackBot):
     async def command_wordcloud(self, user, in_channel, parsed):
         kwargs = {}
         if 'user' in parsed:
-            kwargs['user'] = parsed['user']
+            kwargs['user'] = mention_to_uid(parsed['user'])
 
         if 'all_channels' in parsed:
             pass

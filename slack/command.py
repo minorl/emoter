@@ -34,15 +34,19 @@ class MessageCommand(Command):
         unless it is falsy, in which case sends it to the specified user."""
         channel = (slack.ids.cid(self.channel)
                    if self.channel else
-                   slack.ids.dmid(self.user))
+                   slack.ids.dmid(uid=self.user))
 
-        for index in range((len(self.text) - 1) // 4000 + 1):
-            await slack.send(self.text[4000 * index: 4000 * (index + 1)], channel, self.callback)
+        max_index = (len(self.text) - 1) // 4000
+        for index in range(max_index + 1):
+            if index < max_index:
+                await slack.send(self.text[4000 * index: 4000 * (index + 1)], channel, None)
+            else:
+                await slack.send(self.text[4000 * index: 4000 * (index + 1)], channel, self.callback)
 
 
 class DeleteCommand(Command):
 
-    """Deletes the response that this command was in response to"""
+    """Deletes the response that this command was in response to. Possibly doesn't work."""
 
     def __init__(self, channel=None, user=None, text=''):
         pass
@@ -51,7 +55,7 @@ class DeleteCommand(Command):
         await slack.delete_message(event['channel'], event['user'], event['ts'])
 
 
-Record = namedtuple('Record', ['channel', 'user', 'text', 'time'])
+Record = namedtuple('Record', ['channel', 'uid', 'text', 'time'])
 
 
 class HistoryCommand(Command):
@@ -72,10 +76,10 @@ class HistoryCommand(Command):
             kwargs['channel'] = self.channel
 
         if self.user:
-            kwargs['user'] = self.user
+            kwargs['uid'] = self.user
 
         hist_objects = HistoryDoc.objects(**kwargs)
-        hist_list = [Record(r.channel, r.user, r.text, r.time)
+        hist_list = [Record(r.channel, r.uid, r.text, r.time)
                      for r in hist_objects]
 
         return await self.callback(hist_list)

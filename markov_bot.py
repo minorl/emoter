@@ -9,6 +9,7 @@ from reddit.monitor import get_user_comments, get_user_posts
 from slack.bot import SlackBot, register
 from slack.command import HistoryCommand, MessageCommand
 from slack.parsing import symbols
+from util import mention_to_uid
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +21,7 @@ class MarkovBot(SlackBot):
         self.markov_name = 'Markov Message Generation'
         self.markov_expr = (CaselessLiteral('simulate') +
                             Optional(symbols.flag('reddit')) +
-                            symbols.user_name.setResultsName('user'))
+                            symbols.mention.setResultsName('user'))
         self.markov_doc = ('Generate a message based on a user\'s messages:\n'
                            '\tsimulate <user>')
 
@@ -79,7 +80,7 @@ class MarkovBot(SlackBot):
 
     async def _hist_callback(self, hist_list):
         for message in hist_list:
-            self._load_message(message.user, message.text)
+            self._load_message(message.uid, message.text)
 
     @register(name='markov_name', expr='markov_expr', doc='markov_doc')
     async def command_generate(self, user, in_channel, parsed):
@@ -94,9 +95,10 @@ class MarkovBot(SlackBot):
                 out_channel = None
                 out_message = 'User {} either does not exist or has no self posts or comments'.format(target_user)
         else:
-            if target_user in self.user_transitions:
+            target_uid = mention_to_uid(target_user)
+            if target_uid in self.user_transitions:
                 out_channel = in_channel
-                out_message = await self._generate_message(target_user)
+                out_message = await self._generate_message(target_uid)
             else:
                 out_channel = None
                 out_message = 'User {} not found'.format(target_user)
