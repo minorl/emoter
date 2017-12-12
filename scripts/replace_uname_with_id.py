@@ -14,8 +14,6 @@ def main():
             d.update(user=None, uid=uname_to_id[user])
     HistoryDoc.objects.update(unset__user=1)
     print(len(docs))
-    HistoryDoc(uid='1235', time="1414114").save()
-    HistoryDoc(user=None, uid='1235', time="1514114").save()
 
 if __name__ == '__main__':
     main()
