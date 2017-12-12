@@ -16,6 +16,7 @@ import money_bot
 from mongoengine import connect
 # from league.league_api import LeagueApi
 # from league.monitor import LeagueMonitor
+import qanta_bot
 import quote_bot
 import react_bot
 import reddit.monitor
@@ -75,6 +76,8 @@ def main():
 
     markov_bot.MarkovBot(slack=slackapp)
     money_bot.MoneyBot(config.MONEY_CHANNELS, config.MONEY_NAME, slack=slackapp)
+
+    q_bot = qanta_bot.QantaBot(slack=slackapp)
 
     # s_bot = stock_bot.StockBot(
     #     stock_users=config.STOCK_USERS,
