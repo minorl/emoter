@@ -20,8 +20,8 @@ class MarkovBot(SlackBot):
         super().__init__(slack=slack)
         self.markov_name = 'Markov Message Generation'
         self.markov_expr = (CaselessLiteral('simulate') +
-                            Optional(symbols.flag('reddit')) +
-                            symbols.mention.setResultsName('user'))
+                            (symbols.flag_with_arg('reddit', symbols.user_name) |
+                            symbols.mention.setResultsName('user')))
         self.markov_doc = ('Generate a message based on a user\'s messages:\n'
                            '\tsimulate <user>')
 
@@ -84,8 +84,8 @@ class MarkovBot(SlackBot):
 
     @register(name='markov_name', expr='markov_expr', doc='markov_doc')
     async def command_generate(self, user, in_channel, parsed):
-        target_user = parsed['user']
         if 'reddit' in parsed:
+            target_user = parsed['reddit']
             user_exists = await self._update_reddit_user(target_user)
 
             if user_exists:
@@ -95,6 +95,7 @@ class MarkovBot(SlackBot):
                 out_channel = None
                 out_message = 'User {} either does not exist or has no self posts or comments'.format(target_user)
         else:
+            target_user = parsed['user']
             target_uid = mention_to_uid(target_user)
             if target_uid in self.user_transitions:
                 out_channel = in_channel
