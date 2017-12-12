@@ -4,7 +4,6 @@ from mongoengine import Document, StringField
 
 class HistoryDoc(Document):
     """A Slack message"""
-    user = StringField()
     uid = StringField()
     channel = StringField()
     text = StringField()
