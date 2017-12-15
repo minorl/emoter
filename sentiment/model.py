@@ -108,9 +108,7 @@ def load_model(session):
 
 def predict(model, session, word_map, text):
     sent = data.preprocess(text)
-    print('sent:', sent)
     indices = np.array([word_map.get(w, word_map[data.UNK_TOKEN]) for w in chain([data.START_TOKEN], sent, [data.END_TOKEN])]).astype(np.int64)
-    print('indices:', indices)
     return session.run(model['softmax'], feed_dict={model['input']: np.expand_dims(indices, 0)})[0]
 
 def main():

@@ -98,7 +98,6 @@ class SentimentBot(SlackBot):
 
     @register(name='judge_name', expr='judge_expr', doc='judge_doc')
     async def command_judge(self, user, in_channel, parsed):
-        print('Judging', parsed['text'])
         sent = self.predict(parsed['text'])
         sent *= 100
         decimals = parsed['decimals'] if 'decimals' in parsed else '0'
