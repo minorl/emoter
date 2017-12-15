@@ -7,7 +7,7 @@ import config
 from mongoengine.errors import NotUniqueError
 import numpy as np
 from pyparsing import CaselessLiteral, nums, Optional, StringEnd, Word
-from sentiment import lstm
+from sentiment import model
 from sentiment.history import SentimentDoc
 from slack.bot import register, SlackBot
 from slack.command import HistoryCommand, MessageCommand
@@ -44,8 +44,8 @@ class SentimentBot(SlackBot):
         self.cooldowns = defaultdict(int)
         self.monitor_channels = config.SENTIMENT_MONITOR_CHANNELS
 
-        model = lstm.load_model(session)
-        self.predict = partial(model.predict, session)
+        saved_model, word_map = model.load_model(session)
+        self.predict = partial(model.predict, saved_model, session, word_map)
 
     @register(name='name', expr='expr', doc='doc')
     async def command_stats(self, user, in_channel, parsed):
@@ -98,7 +98,8 @@ class SentimentBot(SlackBot):
 
     @register(name='judge_name', expr='judge_expr', doc='judge_doc')
     async def command_judge(self, user, in_channel, parsed):
-        sent = self.predict(parsed['text'][0])
+        print('Judging', parsed['text'])
+        sent = self.predict(parsed['text'])
         sent *= 100
         decimals = parsed['decimals'] if 'decimals' in parsed else '0'
         format_str = 'Positive: {:.' + decimals + 'f}% Negative: {:.' + decimals + 'f}%'
