@@ -8,3 +8,4 @@ Pillow
 unidecode
 nltk
 google-api-python-client
+tensorflow
