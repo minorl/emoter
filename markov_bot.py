@@ -1,10 +1,12 @@
 from collections import Counter, defaultdict
 from itertools import chain
 import logging
+from pathlib import Path
 
+from markov.markov_chain import MarkovChain
 from nltk import word_tokenize
 from numpy.random import choice
-from pyparsing import CaselessLiteral, Optional
+from pyparsing import CaselessLiteral, Optional, Word, alphanums, StringEnd
 from reddit.monitor import get_user_comments, get_user_posts
 from slack.bot import SlackBot, register
 from slack.command import HistoryCommand, MessageCommand
@@ -21,25 +23,35 @@ class MarkovBot(SlackBot):
         self.markov_name = 'Markov Message Generation'
         self.markov_expr = (CaselessLiteral('simulate') +
                             (symbols.flag_with_arg('reddit', symbols.user_name) |
-                            symbols.mention.setResultsName('user')))
+                            symbols.mention.setResultsName('user'))
+                           + StringEnd())
         self.markov_doc = ('Generate a message based on a user\'s messages:\n'
                            '\tsimulate <user>')
 
-        self.user_transitions = defaultdict(lambda: defaultdict(Counter))
-        self.user_transition_totals = defaultdict(Counter)
+        self.custom_name = 'Other markov chains'
+        self.custom_expr = CaselessLiteral('markov') + Word(alphanums).setResultsName('chain_name') + StringEnd()
+        self.custom_doc = ('Run assorted other markov chains:\n'
+                           '\tmarkov <chain name>')
+
+        self.slack_chains = defaultdict(MarkovChain)
         slack.preload_commands((HistoryCommand(callback=self._hist_callback),))
 
-        self.reddit_transitions = defaultdict(lambda: defaultdict(Counter))
+        self.reddit_chains = defaultdict(MarkovChain)
         self.reddit_transition_totals = defaultdict(Counter)
         self.reddit_most_recent_comments = defaultdict(int)
         self.reddit_most_recent_posts = defaultdict(int)
 
+        # Load chains from data directory
+        self.chains = {}
+        for f_path in Path('markov/data').glob('*.txt'):
+            new_chain = MarkovChain()
+            with f_path.open() as f:
+                for line in f:
+                    new_chain.load_string(line)
+            self.chains[f_path.stem] = new_chain
+
     def _load_message(self, user, text, reddit=False):
-        last_word = None
-        for word in chain(word_tokenize(text), [None]):
-            (self.reddit_transitions if reddit else self.user_transitions)[user][last_word][word] += 1
-            (self.reddit_transition_totals if reddit else self.user_transition_totals)[user][last_word] += 1
-            last_word = word
+        (self.reddit_chains if reddit else self.slack_chains)[user].load_string(text)
 
     async def _update_reddit_user(self, user):
         posts = await get_user_posts(user)
@@ -55,28 +67,15 @@ class MarkovBot(SlackBot):
             if comment:
                 self._load_message(user, comment, reddit=True)
 
-        for title, post in new_posts:
+        for _, post in new_posts:
             if post:
                 self._load_message(user, post, reddit=True)
 
         return bool(posts or comments)
 
     async def _generate_message(self, user, reddit=False):
-        last_word = None
-        result = []
-        transitions = (self.reddit_transitions if reddit else self.user_transitions)[user]
-        totals = (self.reddit_transition_totals if reddit else self.user_transition_totals)[user]
-        while last_word is not None or not result:
-            total = totals[last_word]
-            probs = []
-            candidates = []
-            for candidate, count in transitions[last_word].items():
-                probs.append(count / total)
-                candidates.append(candidate)
-            last_word = choice(candidates, p=probs)
-            result.append(last_word)
-
-        return ' '.join(result[:-1])
+        text = (self.reddit_chains if reddit else self.slack_chains)[user].sample()
+        return text
 
     async def _hist_callback(self, hist_list):
         for message in hist_list:
@@ -97,13 +96,22 @@ class MarkovBot(SlackBot):
         else:
             target_user = parsed['user']
             target_uid = mention_to_uid(target_user)
-            if target_uid in self.user_transitions:
+            if target_uid in self.slack_chains:
                 out_channel = in_channel
                 out_message = await self._generate_message(target_uid)
             else:
                 out_channel = None
                 out_message = 'User {} not found'.format(target_user)
         return MessageCommand(user=user, channel=out_channel, text=out_message)
+
+    @register(name='custom_name', expr='custom_expr', doc='custom_doc')
+    async def command_custom_markov(self, user, in_channel, parsed):
+        chain_name = parsed['chain_name']
+        if chain_name in self.chains:
+            message = self.chains[chain_name].sample()
+        else:
+            message = 'Chain does not exist'
+        return MessageCommand(user=user, channel=in_channel, text=message)
 
     @register()
     async def markov_monitor(self, user, in_channel, message):
