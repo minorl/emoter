@@ -43,12 +43,20 @@ class MarkovBot(SlackBot):
 
         # Load chains from data directory
         self.chains = {}
-        for f_path in Path('markov/data').glob('*.txt'):
+
+    def _get_chain(self, name):
+        name = name.lower()
+        if name in self.chains:
+            return self.chains[name]
+        f_path = Path('markov/data/{}.txt'.format(name.lower()))
+        if f_path.exists():
             new_chain = MarkovChain()
             with f_path.open() as f:
                 for line in f:
                     new_chain.load_string(line)
             self.chains[f_path.stem] = new_chain
+            return new_chain
+        return None
 
     def _load_message(self, user, text, reddit=False):
         (self.reddit_chains if reddit else self.slack_chains)[user].load_string(text)
@@ -107,10 +115,11 @@ class MarkovBot(SlackBot):
     @register(name='custom_name', expr='custom_expr', doc='custom_doc')
     async def command_custom_markov(self, user, in_channel, parsed):
         chain_name = parsed['chain_name']
-        if chain_name in self.chains:
-            message = self.chains[chain_name].sample()
+        chain = self._get_chain(chain_name)
+        if chain:
+            message = chain.sample()
         else:
-            message = 'Chain does not exist'
+            message = 'Chain {} does not exist'.format(chain_name)
         return MessageCommand(user=user, channel=in_channel, text=message)
 
     @register()
