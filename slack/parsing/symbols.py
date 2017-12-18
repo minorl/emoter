@@ -23,6 +23,7 @@ quotedString.addParseAction(removeQuotes)
 comma_list = delimitedList((dumb_single_quotes | dumb_double_quotes | quotedString
                             | originalTextFor(OneOrMore(Word(printables, excludeChars=","))))).setResultsName('comma_list')
 
+alphanum_word = Word(alphanums)
 
 def flag(name):
     dashes = '--' if len(name) > 1 else '-'
